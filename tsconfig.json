@@ -1,0 +1,16 @@
+{
+    "include": [
+        "src/**/*"
+    ],
+    "compilerOptions": {
+        "outDir": "./dist",
+        "esModuleInterop": true,
+        "experimentalDecorators": true,
+        "lib": [
+            "ES2015",
+            "dom"
+        ],
+        "target": "ES6",
+        "moduleResolution": "Node"
+    }
+}
