@@ -153,7 +153,7 @@
       return stringify(rnds);
     }
 
-    const DEPLOYED_URL = location.href;
+    const DEPLOYED_URL = location.origin + location.pathname;
     function sha256(plain) {
         return __awaiter(this, void 0, void 0, function* () {
             const encoder = new TextEncoder();
