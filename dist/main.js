@@ -153,7 +153,7 @@
       return stringify(rnds);
     }
 
-    const DEPLOYED_URL = "http://localhost:5500/dist/index.html";
+    const DEPLOYED_URL = location.href;
     function sha256(plain) {
         return __awaiter(this, void 0, void 0, function* () {
             const encoder = new TextEncoder();

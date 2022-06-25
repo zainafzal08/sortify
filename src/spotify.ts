@@ -1,6 +1,6 @@
 import { v4 as uuid } from "uuid";
 
-const DEPLOYED_URL = "http://localhost:5500/dist/index.html";
+const DEPLOYED_URL = location.href;
 
 async function sha256(plain: string) {
   const encoder = new TextEncoder();
