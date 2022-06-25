@@ -25,6 +25,7 @@ interface TokenInfo {
 interface Playlist {
   name: string;
   uri: string;
+  writable: boolean;
 }
 
 export interface AlbumImage {
@@ -99,13 +100,22 @@ export class SpotifyInterface {
     return true;
   }
 
+  private userHasWriteAccess(item: any) {
+    // We just arn't gonna touch collaborative playlists because i don't wanna
+    // think about the implications.
+    if (item.collaborative) return false;
+    return item.owner.id === this.userId;
+  }
+
   private async fetchPlaylists() {
     const playlistsResponse = await this.makeRequest(
       `users/${this.userId}/playlists`
     );
-    this.playlists = playlistsResponse.items.map((item: any) => ({
+    const { items } = playlistsResponse;
+    this.playlists = items.map((item: any) => ({
       name: item.name,
       uri: item.uri,
+      writable: this.userHasWriteAccess(item),
     }));
   }
 

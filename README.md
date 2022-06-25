@@ -6,8 +6,9 @@
 - [x] Show playback UI to highlight when there is no audio clip available and
       to let the user pause/play the current track.
 - [x] Implement playlist names UI.
-- [ ] Filter sink playlists to only be ones with write permissions (not discover
+- [x] Filter sink playlists to only be ones with write permissions (not discover
       weekly)
+- [ ] Optimise UI for mobile.
 - [ ] Allow user to adjust volume.
 - [ ] Implement finish state.
 - [ ] Implement way to restart at any moment.

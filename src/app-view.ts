@@ -309,6 +309,7 @@ export class AppView extends LitElement {
       .action-btn span {
         overflow: hidden;
         text-overflow: ellipsis;
+        white-space: nowrap;
       }
       fieldset {
         width: calc(100% - 4rem);
@@ -403,8 +404,9 @@ export class AppView extends LitElement {
         align-items: center;
         justify-content: space-around;
         flex-direction: column;
-        margin: 0 0.5rem;
+        padding: 0 0.5rem;
         width: 33%;
+        box-sizing: border-box;
       }
       .controls .col:first-child {
         align-items: flex-end;
@@ -412,9 +414,14 @@ export class AppView extends LitElement {
       .controls .col:last-child {
         align-items: flex-start;
       }
-      .controls .row > button {
-        margin: 0.5rem 0;
-        font-size: 0.65rem;
+      .controls .col:last-child button svg {
+        margin-left: 0.5rem;
+        margin-right: 0rem;
+      }
+      .controls .col > button {
+        font-size: 0.75rem;
+        width: 100%;
+        justify-content: center;
       }
       .controls button.info {
         background-color: var(--surface-color);
@@ -426,7 +433,6 @@ export class AppView extends LitElement {
       #playback-status svg,
       #playback-status span {
         display: none;
-        white-space: nowrap;
       }
       #playback-status.started .started-view {
         display: block;
@@ -476,6 +482,7 @@ export class AppView extends LitElement {
 
   private setupView() {
     const playlists = this.spotifyInterface.getAllPlaylists();
+    const writablePlaylists = playlists.filter((pl) => pl.writable);
     return html`
       <h1 class="title">Sortify</h1>
       <fieldset>
@@ -489,7 +496,7 @@ export class AppView extends LitElement {
       <fieldset>
         <legend>Pick where songs go when you swipe them UP</legend>
         <select name="sink-up" id="sink-up">
-          ${playlists.map(
+          ${writablePlaylists.map(
             (pl) => html` <option value=${pl.uri}>${pl.name}</option> `
           )}
         </select>
@@ -497,7 +504,7 @@ export class AppView extends LitElement {
       <fieldset>
         <legend>Pick where songs go when you swipe them LEFT</legend>
         <select name="sink-left" id="sink-left">
-          ${playlists.map(
+          ${writablePlaylists.map(
             (pl) => html` <option value=${pl.uri}>${pl.name}</option> `
           )}
         </select>
@@ -505,7 +512,7 @@ export class AppView extends LitElement {
       <fieldset>
         <legend>Pick where songs go when you swipe them RIGHT</legend>
         <select name="sink-right" id="sink-right">
-          ${playlists.map(
+          ${writablePlaylists.map(
             (pl) => html` <option value=${pl.uri}>${pl.name}</option> `
           )}
         </select>
@@ -835,7 +842,8 @@ export class AppView extends LitElement {
           </button>
           <button
             id="playback-status"
-            class="action-btn started"
+            class=${"action-btn " +
+            (this.currentAudioTrack ? "started" : "error")}
             @click=${() => this.togglePlayback()}
           >
             <svg class="started-view" viewBox="0 0 48 48 ">
@@ -871,17 +879,17 @@ export class AppView extends LitElement {
             class="action-btn info"
             @click=${() => this.programaticSwipe("right")}
           >
+            <span
+              >${this.spotifyInterface.playlistUIDToName(
+                this.appState.sinkRight
+              )}</span
+            >
             <svg viewBox="0 0 48 48">
               <path
                 xmlns="http://www.w3.org/2000/svg"
                 d="m18.75 36-2.15-2.15 9.9-9.9-9.9-9.9 2.15-2.15L30.8 23.95Z"
               />
             </svg>
-            <span
-              >${this.spotifyInterface.playlistUIDToName(
-                this.appState.sinkRight
-              )}</span
-            >
           </button>
         </div>
       </div>
