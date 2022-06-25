@@ -5,7 +5,7 @@
   "main": "index.js",
   "scripts": {
     "dev": "rollup -w -c rollup.config.js",
-    "build": "rollup -c rollup.config.js"
+    "build": "rollup -c rollup.config.js; cp -r dist docs"
   },
   "author": "",
   "license": "ISC",
