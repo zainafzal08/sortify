@@ -265,4 +265,8 @@ export class SpotifyInterface {
     });
     return r.items.map((item) => item.track);
   }
+
+  playlistUIDToName(playlistURI: string) {
+    return this.playlists.find((s) => s.uri === playlistURI).name;
+  }
 }

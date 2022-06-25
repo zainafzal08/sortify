@@ -2,6 +2,7 @@ import { LitElement, html, css } from "lit";
 import { customElement, property } from "lit/decorators.js";
 import { Song, SpotifyInterface } from "./spotify";
 import { styleMap } from "lit-html/directives/style-map.js";
+import { normal } from "color-blend";
 
 interface AppState {
   source: string;
@@ -20,6 +21,51 @@ interface Gesture {
 }
 
 const CARD_SIZE = 250;
+
+/**
+ * Converts an HSL color value to RGB. Conversion formula
+ * adapted from http://en.wikipedia.org/wiki/HSL_color_space.
+ * Assumes h, s, and l are contained in the set [0, 1] and
+ * returns r, g, and b in the set [0, 255].
+ *
+ * @param   {number}  h       The hue
+ * @param   {number}  s       The saturation
+ * @param   {number}  l       The lightness
+ * @return  {Array}           The RGB representation
+ *
+ * Credit: https://stackoverflow.com/questions/2353211/hsl-to-rgb-color-conversion
+ */
+function HSLToRGB(h, s, l) {
+  h = h / 360;
+  s = s / 100;
+  l = l / 100;
+  var r, g, b;
+
+  if (s == 0) {
+    r = g = b = l; // achromatic
+  } else {
+    var hue2rgb = function hue2rgb(p, q, t) {
+      if (t < 0) t += 1;
+      if (t > 1) t -= 1;
+      if (t < 1 / 6) return p + (q - p) * 6 * t;
+      if (t < 1 / 2) return q;
+      if (t < 2 / 3) return p + (q - p) * (2 / 3 - t) * 6;
+      return p;
+    };
+
+    var q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+    var p = 2 * l - q;
+    r = hue2rgb(p, q, h + 1 / 3);
+    g = hue2rgb(p, q, h);
+    b = hue2rgb(p, q, h - 1 / 3);
+  }
+
+  return {
+    r: Math.round(r * 255),
+    g: Math.round(g * 255),
+    b: Math.round(b * 255),
+  };
+}
 
 // https://css-tricks.com/converting-color-spaces-in-javascript/
 function RGBToHSL(r: number, g: number, b: number) {
@@ -70,6 +116,7 @@ export class AppView extends LitElement {
   private currentGesture: Gesture | null = null;
   private currentAlbumColorComputeToken: number = 0;
   private currentAudioTrack: HTMLAudioElement | null = null;
+  private enablePlayback = true;
 
   @property({ type: Object })
   appState: AppState | null = null;
@@ -254,10 +301,14 @@ export class AppView extends LitElement {
         transform: scale(1);
       }
       .action-btn svg {
-        width: 20px;
-        height: 20px;
+        min-width: 14px;
+        width: 14px;
         fill: rgb(43, 50, 65);
         margin-right: 0.5rem;
+      }
+      .action-btn span {
+        overflow: hidden;
+        text-overflow: ellipsis;
       }
       fieldset {
         width: calc(100% - 4rem);
@@ -337,6 +388,54 @@ export class AppView extends LitElement {
         left: -1000px;
         opacity: 0;
         pointer-events: none;
+      }
+      .controls {
+        display: flex;
+        padding-bottom: 2rem;
+        height: 200px;
+        width: 100%;
+        align-items: center;
+        justify-content: center;
+      }
+      .controls .col {
+        height: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: space-around;
+        flex-direction: column;
+        margin: 0 0.5rem;
+        width: 33%;
+      }
+      .controls .col:first-child {
+        align-items: flex-end;
+      }
+      .controls .col:last-child {
+        align-items: flex-start;
+      }
+      .controls .row > button {
+        margin: 0.5rem 0;
+        font-size: 0.65rem;
+      }
+      .controls button.info {
+        background-color: var(--surface-color);
+        color: white;
+      }
+      .controls button.info svg {
+        fill: white;
+      }
+      #playback-status svg,
+      #playback-status span {
+        display: none;
+        white-space: nowrap;
+      }
+      #playback-status.started .started-view {
+        display: block;
+      }
+      #playback-status.error .error-view {
+        display: block;
+      }
+      #playback-status.stopped .stopped-view {
+        display: block;
       }
     `;
   }
@@ -555,12 +654,16 @@ export class AppView extends LitElement {
     this.currentAudioTrack?.pause();
     if (!previewUrl) {
       this.currentAudioTrack = null;
+      this.updatePlaybackButton();
       return;
     }
     this.currentAudioTrack = new Audio(previewUrl);
     this.currentAudioTrack.volume = 0.5;
     this.currentAudioTrack.loop = true;
-    this.currentAudioTrack.play();
+    if (this.enablePlayback) {
+      this.currentAudioTrack.play();
+    }
+    this.updatePlaybackButton();
   }
 
   private async setAlbumColor(image: {
@@ -624,9 +727,18 @@ export class AppView extends LitElement {
         l: 10,
       };
     }
+    const bgColorRgb = HSLToRGB(bgColor.h, bgColor.s, bgColor.l);
     this.style.setProperty(
       "--album-color",
       `hsl(${albumColorHsl.h}, ${albumColorHsl.s}%, ${albumColorHsl.l}%)`
+    );
+    const surfaceColor = normal(
+      { ...bgColorRgb, a: 1 },
+      { r: 255, g: 255, b: 255, a: 0.4 }
+    );
+    this.style.setProperty(
+      "--surface-color",
+      `rgb(${surfaceColor.r}, ${surfaceColor.g}, ${surfaceColor.b})`
     );
     this.style.setProperty(
       "--bg-color",
@@ -653,6 +765,18 @@ export class AppView extends LitElement {
     `;
   }
 
+  private togglePlayback() {
+    if (!this.currentAudioTrack) return;
+
+    this.enablePlayback = !this.enablePlayback;
+    if (this.enablePlayback) {
+      this.currentAudioTrack.play();
+    } else {
+      this.currentAudioTrack.pause();
+    }
+    this.updatePlaybackButton();
+  }
+
   private sortView() {
     const { queue } = this.appState;
     let front, back;
@@ -674,6 +798,93 @@ export class AppView extends LitElement {
 
     return html`
       <div class="card-container">${front} ${back}</div>
+      <div class="controls">
+        <div class="col">
+          <button
+            class="action-btn info"
+            @click=${() => this.programaticSwipe("left")}
+          >
+            <svg viewBox="0 0 48 48">
+              <path
+                d="M28.05 36 16 23.95 28.05 11.9l2.15 2.15-9.9 9.9 9.9 9.9Z"
+              />
+            </svg>
+            <span
+              >${this.spotifyInterface.playlistUIDToName(
+                this.appState.sinkLeft
+              )}</span
+            >
+          </button>
+        </div>
+        <div class="col">
+          <button
+            class="action-btn info"
+            @click=${() => this.programaticSwipe("top")}
+          >
+            <svg viewBox="0 0 48 48">
+              <path
+                xmlns="http://www.w3.org/2000/svg"
+                d="M14.15 30.75 12 28.6l12-12 12 11.95-2.15 2.15L24 20.85Z"
+              />
+            </svg>
+            <span
+              >${this.spotifyInterface.playlistUIDToName(
+                this.appState.sinkUp
+              )}</span
+            >
+          </button>
+          <button
+            id="playback-status"
+            class="action-btn started"
+            @click=${() => this.togglePlayback()}
+          >
+            <svg class="started-view" viewBox="0 0 48 48 ">
+              <path d="M12 36V12h24v24Z" />
+            </svg>
+            <svg class="stopped-view" viewBox="0 0 48 48">
+              <path d="M16 37.85v-28l22 14Z" />
+            </svg>
+            <svg class="error-view" viewBox="0 0 48 48">
+              <path
+                d="M22.65 34H25.65V22H22.65ZM24 18.3Q24.7 18.3 25.175 17.85Q25.65 17.4 25.65 16.7Q25.65 16 25.175 15.5Q24.7 15 24 15Q23.3 15 22.825 15.5Q22.35 16 22.35 16.7Q22.35 17.4 22.825 17.85Q23.3 18.3 24 18.3ZM24 44Q19.75 44 16.1 42.475Q12.45 40.95 9.75 38.25Q7.05 35.55 5.525 31.9Q4 28.25 4 24Q4 19.8 5.525 16.15Q7.05 12.5 9.75 9.8Q12.45 7.1 16.1 5.55Q19.75 4 24 4Q28.2 4 31.85 5.55Q35.5 7.1 38.2 9.8Q40.9 12.5 42.45 16.15Q44 19.8 44 24Q44 28.25 42.45 31.9Q40.9 35.55 38.2 38.25Q35.5 40.95 31.85 42.475Q28.2 44 24 44Z"
+              />
+            </svg>
+            <span class="started-view">Stop Playback</span>
+            <span class="stopped-view">Start Playback</span>
+            <span class="error-view">Preview Unavailable</span>
+          </button>
+          <button
+            class="action-btn info"
+            @click=${() => this.programaticSwipe("bottom")}
+          >
+            <svg viewBox="0 0 48 48">
+              <path
+                xmlns="http://www.w3.org/2000/svg"
+                d="m24 30.75-12-12 2.15-2.15L24 26.5l9.85-9.85L36 18.8Z"
+              />
+            </svg>
+            <span>Skip Track</span>
+          </button>
+        </div>
+        <div class="col">
+          <button
+            class="action-btn info"
+            @click=${() => this.programaticSwipe("right")}
+          >
+            <svg viewBox="0 0 48 48">
+              <path
+                xmlns="http://www.w3.org/2000/svg"
+                d="m18.75 36-2.15-2.15 9.9-9.9-9.9-9.9 2.15-2.15L30.8 23.95Z"
+              />
+            </svg>
+            <span
+              >${this.spotifyInterface.playlistUIDToName(
+                this.appState.sinkRight
+              )}</span
+            >
+          </button>
+        </div>
+      </div>
       <canvas id="hidden-canvas"></canvas>
     `;
   }
@@ -716,8 +927,26 @@ export class AppView extends LitElement {
     }
   }
 
+  private updatePlaybackButton() {
+    const btn = this.renderRoot.querySelector(
+      "#playback-status"
+    ) as HTMLElement;
+    if (!btn) return;
+    btn.classList.remove("started");
+    btn.classList.remove("stopped");
+    btn.classList.remove("error");
+    if (!this.currentAudioTrack) {
+      btn.classList.add("error");
+    } else if (this.enablePlayback) {
+      btn.classList.add("started");
+    } else {
+      btn.classList.add("stopped");
+    }
+  }
+
   protected firstUpdated(): void {
     this.style.setProperty("--album-color", "#617193");
+    this.style.setProperty("--surface-color", "#555B67");
     this.style.setProperty("--bg-color", "#2B3241");
     const numPaths = 6;
     for (let i = 0; i < numPaths; i++) {
@@ -742,38 +971,49 @@ export class AppView extends LitElement {
     }
   }
 
+  private programaticSwipe(bucket: "top" | "bottom" | "left" | "right") {
+    let finalX = null;
+    let finalY = null;
+    const winWidth = window.innerWidth;
+    const winHeight = window.innerHeight;
+    if (bucket === "left") {
+      window.setTimeout(() => this.commitFrontCard("left"), 250);
+      finalX = -winWidth;
+      finalY = 0;
+    } else if (bucket === "right") {
+      window.setTimeout(() => this.commitFrontCard("right"), 250);
+      finalX = winWidth;
+      finalY = 0;
+    } else if (bucket === "top") {
+      window.setTimeout(() => this.commitFrontCard("top"), 250);
+      finalX = 0;
+      finalY = -winHeight;
+    } else {
+      window.setTimeout(() => this.commitFrontCard("bottom"), 250);
+      finalX = 0;
+      finalY = winHeight;
+    }
+    const frontCard = this.renderRoot.querySelector(
+      ".card.front"
+    ) as HTMLElement;
+    frontCard.classList.add("animated");
+    frontCard.style.transform = `translate(${finalX}px, ${finalY}px)`;
+  }
+
   private onKeyUp(e: KeyboardEvent) {
     if (!this.appState) {
       // No sort in progress.
       return;
     }
-    let finalX = null;
-    let finalY = null;
-    const winWidth = window.innerWidth;
-    const winHeight = window.innerHeight;
+
     if (e.key === "ArrowLeft") {
-      window.setTimeout(() => this.commitFrontCard("left"), 250);
-      finalX = -winWidth;
-      finalY = 0;
+      this.programaticSwipe("left");
     } else if (e.key === "ArrowRight") {
-      window.setTimeout(() => this.commitFrontCard("right"), 250);
-      finalX = winWidth;
-      finalY = 0;
+      this.programaticSwipe("right");
     } else if (e.key === "ArrowUp") {
-      window.setTimeout(() => this.commitFrontCard("top"), 250);
-      finalX = 0;
-      finalY = -winHeight;
+      this.programaticSwipe("top");
     } else if (e.key === "ArrowDown") {
-      window.setTimeout(() => this.commitFrontCard("bottom"), 250);
-      finalX = 0;
-      finalY = winHeight;
-    }
-    if (finalX !== null && finalY !== null) {
-      const frontCard = this.renderRoot.querySelector(
-        ".card.front"
-      ) as HTMLElement;
-      frontCard.classList.add("animated");
-      frontCard.style.transform = `translate(${finalX}px, ${finalY}px)`;
+      this.programaticSwipe("bottom");
     }
   }
 
