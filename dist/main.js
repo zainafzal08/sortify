@@ -1356,6 +1356,7 @@
                 this.spotifyInterface.connectionState() === "pending-login") {
                 this.spotifyInterface.completeLogin(params);
             }
+            this.onResize();
         }
         activateOverflowScrollRegions() {
             const elements = Array.from(this.renderRoot.querySelectorAll(".overflow-container .text"));

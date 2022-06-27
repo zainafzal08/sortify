@@ -1054,6 +1054,7 @@ export class AppView extends LitElement {
     ) {
       this.spotifyInterface.completeLogin(params);
     }
+    this.onResize();
   }
 
   private activateOverflowScrollRegions() {
