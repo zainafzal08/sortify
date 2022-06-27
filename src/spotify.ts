@@ -182,7 +182,7 @@ export class SpotifyInterface {
     url.searchParams.set("client_id", this.clientID);
     url.searchParams.set(
       "scope",
-      "playlist-read-private playlist-modify-private user-read-email"
+      "playlist-read-private playlist-modify-private user-read-email user-library-read user-library-modify"
     );
     url.searchParams.set("redirect_uri", DEPLOYED_URL);
     url.searchParams.set("state", state);
@@ -260,20 +260,35 @@ export class SpotifyInterface {
   }
 
   getAllPlaylists(): Playlist[] {
-    return this.playlists;
+    return [
+      ...this.playlists,
+      {
+        name: "Liked Songs",
+        uri: "__LIKED__",
+        writable: true,
+      },
+    ];
   }
 
   onStateChange(callback: () => void) {
     this.listeners.push(callback);
   }
 
+  private async getAllLikedSongs() {
+    const r = await this.makeRequest("me/tracks");
+    return r.items.map((item: any) => item.track);
+  }
+
   async getAllSongsInPlaylist(playlistURI: string): Promise<Song[]> {
+    if (playlistURI === "__LIKED__") {
+      return this.getAllLikedSongs();
+    }
     const playlistId = playlistURI.split(":")[2];
     const r = await this.makeRequest(`playlists/${playlistId}/tracks`, {
       fields:
         "items(track(preview_url,name,artists(name),album(name, images)))",
     });
-    return r.items.map((item) => item.track);
+    return r.items.map((item: any) => item.track);
   }
 
   playlistUIDToName(playlistURI: string) {

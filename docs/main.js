@@ -489,6 +489,8 @@
       :host {
         width: 100vw;
         height: 100vh;
+        display: block;
+        position: relative;
         --card-size: ${CARD_SIZE}px;
       }
       @keyframes move-1 {
@@ -830,6 +832,8 @@
       }
       .controls button .overflow-container .text {
         position: absolute;
+        width: 100%;
+        text-align: center;
       }
       .controls button .overflow-container .text.marquee {
         padding-left: 4px;

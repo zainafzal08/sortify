@@ -117,6 +117,7 @@ export class AppView extends LitElement {
   private currentAlbumColorComputeToken: number = 0;
   private currentAudioTrack: HTMLAudioElement | null = null;
   private enablePlayback = true;
+  private lastResizeEvent = 0;
 
   @property({ type: Object })
   appState: AppState | null = null;
@@ -126,6 +127,8 @@ export class AppView extends LitElement {
       :host {
         width: 100vw;
         height: 100vh;
+        display: block;
+        position: relative;
         --card-size: ${CARD_SIZE}px;
       }
       @keyframes move-1 {
@@ -446,7 +449,13 @@ export class AppView extends LitElement {
         position: relative;
         width: 100%;
         height: 100%;
+        display: flex;
+        justify-content: center;
       }
+      .controls button .overflow-container.scrolling {
+        justify-content: flex-start;
+      }
+
       .controls button .overflow-container.scrolling:before {
         content: "";
         position: absolute;
@@ -476,13 +485,13 @@ export class AppView extends LitElement {
         display: none;
       }
       #playback-status.started .started-view {
-        display: block;
+        display: flex;
       }
       #playback-status.error .error-view {
-        display: block;
+        display: flex;
       }
       #playback-status.stopped .stopped-view {
-        display: block;
+        display: flex;
       }
 
       @keyframes marquee {
@@ -791,14 +800,18 @@ export class AppView extends LitElement {
         l: 10,
       };
     }
-    const bgColorRgb = HSLToRGB(bgColor.h, bgColor.s, bgColor.l);
+    const albumColorRGB = HSLToRGB(
+      albumColorHsl.h,
+      albumColorHsl.s,
+      albumColorHsl.l
+    );
     this.style.setProperty(
       "--album-color",
       `hsl(${albumColorHsl.h}, ${albumColorHsl.s}%, ${albumColorHsl.l}%)`
     );
     const surfaceColor = normal(
-      { ...bgColorRgb, a: 1 },
-      { r: 255, g: 255, b: 255, a: 0.4 }
+      { ...albumColorRGB, a: 1 },
+      { r: 0, g: 0, b: 0, a: 0.4 }
     );
     this.style.setProperty(
       "--surface-color",
@@ -1120,7 +1133,14 @@ export class AppView extends LitElement {
     }
   }
 
-  private onResize() {}
+  private onResize() {
+    if (Date.now() - this.lastResizeEvent < 200) {
+      // Throttle resize events so we only handle 1 every 200ms.
+      return;
+    }
+    this.lastResizeEvent = Date.now();
+    this.activateOverflowScrollRegions();
+  }
 
   connectedCallback(): void {
     super.connectedCallback();

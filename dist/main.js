@@ -289,7 +289,7 @@
                 const url = new URL("https://accounts.spotify.com/authorize");
                 url.searchParams.set("response_type", "code");
                 url.searchParams.set("client_id", this.clientID);
-                url.searchParams.set("scope", "playlist-read-private playlist-modify-private user-read-email");
+                url.searchParams.set("scope", "playlist-read-private playlist-modify-private user-read-email user-library-read user-library-modify");
                 url.searchParams.set("redirect_uri", DEPLOYED_URL);
                 url.searchParams.set("state", state);
                 url.searchParams.set("code_challenge_method", "S256");
@@ -358,13 +358,29 @@
             });
         }
         getAllPlaylists() {
-            return this.playlists;
+            return [
+                ...this.playlists,
+                {
+                    name: "Liked Songs",
+                    uri: "__LIKED__",
+                    writable: true,
+                },
+            ];
         }
         onStateChange(callback) {
             this.listeners.push(callback);
         }
+        getAllLikedSongs() {
+            return __awaiter(this, void 0, void 0, function* () {
+                const r = yield this.makeRequest("me/tracks");
+                return r.items.map((item) => item.track);
+            });
+        }
         getAllSongsInPlaylist(playlistURI) {
             return __awaiter(this, void 0, void 0, function* () {
+                if (playlistURI === "__LIKED__") {
+                    return this.getAllLikedSongs();
+                }
                 const playlistId = playlistURI.split(":")[2];
                 const r = yield this.makeRequest(`playlists/${playlistId}/tracks`, {
                     fields: "items(track(preview_url,name,artists(name),album(name, images)))",
@@ -482,6 +498,7 @@
             this.currentAlbumColorComputeToken = 0;
             this.currentAudioTrack = null;
             this.enablePlayback = true;
+            this.lastResizeEvent = 0;
             this.appState = null;
         }
         static get styles() {
@@ -489,6 +506,8 @@
       :host {
         width: 100vw;
         height: 100vh;
+        display: block;
+        position: relative;
         --card-size: ${CARD_SIZE}px;
       }
       @keyframes move-1 {
@@ -809,7 +828,13 @@
         position: relative;
         width: 100%;
         height: 100%;
+        display: flex;
+        justify-content: center;
       }
+      .controls button .overflow-container.scrolling {
+        justify-content: flex-start;
+      }
+
       .controls button .overflow-container.scrolling:before {
         content: "";
         position: absolute;
@@ -839,13 +864,13 @@
         display: none;
       }
       #playback-status.started .started-view {
-        display: block;
+        display: flex;
       }
       #playback-status.error .error-view {
-        display: block;
+        display: flex;
       }
       #playback-status.stopped .stopped-view {
-        display: block;
+        display: flex;
       }
 
       @keyframes marquee {
@@ -1122,9 +1147,9 @@
                 else {
                     bgColor = Object.assign(Object.assign({}, albumColorHsl), { l: 10 });
                 }
-                const bgColorRgb = HSLToRGB(bgColor.h, bgColor.s, bgColor.l);
+                const albumColorRGB = HSLToRGB(albumColorHsl.h, albumColorHsl.s, albumColorHsl.l);
                 this.style.setProperty("--album-color", `hsl(${albumColorHsl.h}, ${albumColorHsl.s}%, ${albumColorHsl.l}%)`);
-                const surfaceColor = A(Object.assign(Object.assign({}, bgColorRgb), { a: 1 }), { r: 255, g: 255, b: 255, a: 0.4 });
+                const surfaceColor = A(Object.assign(Object.assign({}, albumColorRGB), { a: 1 }), { r: 0, g: 0, b: 0, a: 0.4 });
                 this.style.setProperty("--surface-color", `rgb(${surfaceColor.r}, ${surfaceColor.g}, ${surfaceColor.b})`);
                 this.style.setProperty("--bg-color", `hsl(${bgColor.h}, ${bgColor.s}%, ${bgColor.l}%)`);
             });
@@ -1420,7 +1445,14 @@
                 this.programaticSwipe("bottom");
             }
         }
-        onResize() { }
+        onResize() {
+            if (Date.now() - this.lastResizeEvent < 200) {
+                // Throttle resize events so we only handle 1 every 200ms.
+                return;
+            }
+            this.lastResizeEvent = Date.now();
+            this.activateOverflowScrollRegions();
+        }
         connectedCallback() {
             super.connectedCallback();
             // We never detach these so uh...never detach and reattach app-view!
