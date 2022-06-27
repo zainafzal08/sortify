@@ -9,14 +9,23 @@
 - [x] Filter sink playlists to only be ones with write permissions (not discover
       weekly)
 - [ ] Optimise UI for mobile.
-- [ ] Allow user to adjust volume.
+  - [ ] Fix scrolling into white.
+  - [x] Swipe doesn't work at all.
+  - [x] Playlist UI doesn't have enough room on mobile.
+- [x] Make scrolling playlist regions have fade in / out.
+- [ ] Trigger auto scroll regions on resize
+- [ ] Add settings dialog
+  - [ ] Allow user to adjust volume.
+  - [ ] Link to github so user can file bugs.
+  - [ ] Allow user to perma turn off playback?
+  - [ ] Allow user to restart.
+- [ ] Move todo list into github issues.
 - [ ] Implement finish state.
-- [ ] Implement way to restart at any moment.
 - [ ] Actually commit edits to spotify.
 - [ ] Allow users to read / write to liked songs.
 - [ ] Fix weird scroll when dragging card to bottom / right.
 - [ ] Fix issue with failing to start up without local storage clear. (refresh tokens consistently fail?)
 - [ ] Test on firefox and safari.
-- [ ] DOM has to be interacted with once before playback is allowed, handle this
-      case for resuming a previous queue. Maybe just a simple "welcome back,
-      lets go!" dialog.
+- [ ] Remove ability to resume a queue, force user to re-setup every time.
+- [ ] Handle empty playlists.
+- [ ] Refactor code cause it's disgusting lmao.
