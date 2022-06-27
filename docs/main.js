@@ -487,8 +487,8 @@
         static get styles() {
             return r$3 `
       :host {
-        width: 100%;
-        height: 100%;
+        width: 100vw;
+        height: 100vh;
         --card-size: ${CARD_SIZE}px;
       }
       @keyframes move-1 {
@@ -578,8 +578,18 @@
         transition: fill 0.4s;
       }
 
+      button {
+        -webkit-tap-highlight-color: transparent;
+        -webkit-touch-callout: none;
+        -webkit-user-select: none;
+        -khtml-user-select: none;
+        -moz-user-select: none;
+        -ms-user-select: none;
+        user-select: none;
+      }
       #content {
         width: 100%;
+        padding: 0 1rem;
         box-sizing: border-box;
         height: 100%;
         position: absolute;
@@ -671,7 +681,6 @@
       }
       .action-btn span {
         overflow: hidden;
-        text-overflow: ellipsis;
         white-space: nowrap;
       }
       fieldset {
@@ -703,6 +712,7 @@
         display: grid;
         place-items: center;
         position: relative;
+        touch-action: none;
       }
       .card-container .card {
         position: absolute;
@@ -793,8 +803,39 @@
       .controls button.info svg {
         fill: white;
       }
+      .controls button .overflow-container {
+        overflow: hidden;
+        white-space: nowrap;
+        position: relative;
+        width: 100%;
+        height: 100%;
+      }
+      .controls button .overflow-container.scrolling:before {
+        content: "";
+        position: absolute;
+        left: 0;
+        height: 100%;
+        width: 4px;
+        background: linear-gradient(90deg, var(--surface-color), transparent);
+        z-index: 2;
+      }
+      .controls button .overflow-container.scrolling:after {
+        content: "";
+        position: absolute;
+        right: 0;
+        height: 100%;
+        width: 4px;
+        background: linear-gradient(-90deg, var(--surface-color), transparent);
+        z-index: 2;
+      }
+      .controls button .overflow-container .text {
+        position: absolute;
+      }
+      .controls button .overflow-container .text.marquee {
+        padding-left: 4px;
+      }
       #playback-status svg,
-      #playback-status span {
+      #playback-status .overflow-container {
         display: none;
       }
       #playback-status.started .started-view {
@@ -805,6 +846,22 @@
       }
       #playback-status.stopped .stopped-view {
         display: block;
+      }
+
+      @keyframes marquee {
+        0% {
+          transform: translateX(0%);
+        }
+        20% {
+          transform: translateX(0%);
+        }
+        100% {
+          transform: translateX(-100%);
+        }
+      }
+
+      .marquee {
+        animation: marquee 8s infinite linear;
       }
     `;
         }
@@ -1133,9 +1190,12 @@
                 d="M28.05 36 16 23.95 28.05 11.9l2.15 2.15-9.9 9.9 9.9 9.9Z"
               />
             </svg>
-            <span
-              >${this.spotifyInterface.playlistUIDToName(this.appState.sinkLeft)}</span
-            >
+            <div class="overflow-container">
+              <div class="text">
+                ${this.spotifyInterface.playlistUIDToName(this.appState.sinkLeft)}
+              </div>
+            </div>
+            </span>
           </button>
         </div>
         <div class="col">
@@ -1149,30 +1209,42 @@
                 d="M14.15 30.75 12 28.6l12-12 12 11.95-2.15 2.15L24 20.85Z"
               />
             </svg>
-            <span
-              >${this.spotifyInterface.playlistUIDToName(this.appState.sinkUp)}</span
-            >
+            <div class="overflow-container">
+              <div class="text">
+                ${this.spotifyInterface.playlistUIDToName(this.appState.sinkUp)}
+              </div>
+            </div>
           </button>
           <button
             id="playback-status"
-            class=${"action-btn " +
-            (this.currentAudioTrack ? "started" : "error")}
+            class=${"action-btn " + (this.currentAudioTrack ? "started" : "error")}
             @click=${() => this.togglePlayback()}
           >
             <svg class="started-view" viewBox="0 0 48 48 ">
-              <path d="M12 36V12h24v24Z" />
+              <path
+                d="M19.65 42q-3.15 0-5.325-2.175Q12.15 37.65 12.15 34.5q0-3.15 2.175-5.325Q16.5 27 19.65 27q1.4 0 2.525.4t1.975 1.1V6h11.7v6.75h-8.7V34.5q0 3.15-2.175 5.325Q22.8 42 19.65 42Z"
+              />
             </svg>
             <svg class="stopped-view" viewBox="0 0 48 48">
-              <path d="M16 37.85v-28l22 14Z" />
+              <path
+                d="M19.65 42q-3.15 0-5.325-2.175Q12.15 37.65 12.15 34.5q0-3.15 2.175-5.325Q16.5 27 19.65 27q1.4 0 2.525.4t1.975 1.1V6h11.7v6.75h-8.7V34.5q0 3.15-2.175 5.325Q22.8 42 19.65 42Z"
+              />
             </svg>
             <svg class="error-view" viewBox="0 0 48 48">
               <path
                 d="M22.65 34H25.65V22H22.65ZM24 18.3Q24.7 18.3 25.175 17.85Q25.65 17.4 25.65 16.7Q25.65 16 25.175 15.5Q24.7 15 24 15Q23.3 15 22.825 15.5Q22.35 16 22.35 16.7Q22.35 17.4 22.825 17.85Q23.3 18.3 24 18.3ZM24 44Q19.75 44 16.1 42.475Q12.45 40.95 9.75 38.25Q7.05 35.55 5.525 31.9Q4 28.25 4 24Q4 19.8 5.525 16.15Q7.05 12.5 9.75 9.8Q12.45 7.1 16.1 5.55Q19.75 4 24 4Q28.2 4 31.85 5.55Q35.5 7.1 38.2 9.8Q40.9 12.5 42.45 16.15Q44 19.8 44 24Q44 28.25 42.45 31.9Q40.9 35.55 38.2 38.25Q35.5 40.95 31.85 42.475Q28.2 44 24 44Z"
               />
             </svg>
-            <span class="started-view">Stop Playback</span>
-            <span class="stopped-view">Start Playback</span>
-            <span class="error-view">Preview Unavailable</span>
+            
+            <div class="overflow-container started-view">
+              <div class="text">Stop</div>
+            </div>
+            <div class="overflow-container stopped-view">
+              <div class="text">Start</div>
+            </div>
+            <div class="overflow-container error-view">
+              <div class="text">Missing</div>
+            </div>
           </button>
           <button
             class="action-btn info"
@@ -1184,7 +1256,9 @@
                 d="m24 30.75-12-12 2.15-2.15L24 26.5l9.85-9.85L36 18.8Z"
               />
             </svg>
-            <span>Skip Track</span>
+            <div class="overflow-container">
+              <div class="text">Skip Track</div>
+            </div>
           </button>
         </div>
         <div class="col">
@@ -1192,9 +1266,11 @@
             class="action-btn info"
             @click=${() => this.programaticSwipe("right")}
           >
-            <span
-              >${this.spotifyInterface.playlistUIDToName(this.appState.sinkRight)}</span
-            >
+            <div class="overflow-container">
+              <div class="text">
+                ${this.spotifyInterface.playlistUIDToName(this.appState.sinkRight)}
+              </div>
+            </div>
             <svg viewBox="0 0 48 48">
               <path
                 xmlns="http://www.w3.org/2000/svg"
@@ -1279,6 +1355,23 @@
                 this.spotifyInterface.connectionState() === "pending-login") {
                 this.spotifyInterface.completeLogin(params);
             }
+            this.onResize();
+        }
+        activateOverflowScrollRegions() {
+            const elements = Array.from(this.renderRoot.querySelectorAll(".overflow-container .text"));
+            for (const element of elements) {
+                const parent = element.parentElement;
+                const parentDim = parent.getBoundingClientRect();
+                const elementDim = element.getBoundingClientRect();
+                if (parentDim.width < elementDim.width) {
+                    parent.classList.add("scrolling");
+                    element.classList.add("marquee");
+                }
+                else {
+                    parent.classList.remove("scrolling");
+                    element.classList.remove("marquee");
+                }
+            }
         }
         programaticSwipe(bucket) {
             let finalX = null;
@@ -1327,6 +1420,7 @@
                 this.programaticSwipe("bottom");
             }
         }
+        onResize() { }
         connectedCallback() {
             super.connectedCallback();
             // We never detach these so uh...never detach and reattach app-view!
@@ -1337,6 +1431,7 @@
                 this.onCardDrop(e);
             });
             document.body.addEventListener("keyup", (e) => this.onKeyUp(e));
+            window.addEventListener("resize", () => this.onResize());
         }
         render() {
             const state = this.spotifyInterface.connectionState();
@@ -1356,6 +1451,7 @@
                     this.appState = JSON.parse(storedAppState);
                 }
                 content = this.sortView();
+                requestAnimationFrame(() => this.activateOverflowScrollRegions());
             }
             return $ `
       <svg

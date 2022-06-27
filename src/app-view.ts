@@ -124,9 +124,8 @@ export class AppView extends LitElement {
   static get styles() {
     return css`
       :host {
-        width: 100%;
+        width: 100vw;
         height: 100vh;
-        height: calc(var(--vh, 1vh) * 100);
         --card-size: ${CARD_SIZE}px;
       }
       @keyframes move-1 {
@@ -1121,10 +1120,7 @@ export class AppView extends LitElement {
     }
   }
 
-  private onResize() {
-    let vh = window.innerHeight * 0.01;
-    this.style.setProperty("--vh", `${vh}px`);
-  }
+  private onResize() {}
 
   connectedCallback(): void {
     super.connectedCallback();

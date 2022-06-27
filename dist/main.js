@@ -487,9 +487,8 @@
         static get styles() {
             return r$3 `
       :host {
-        width: 100%;
+        width: 100vw;
         height: 100vh;
-        height: calc(var(--vh, 1vh) * 100);
         --card-size: ${CARD_SIZE}px;
       }
       @keyframes move-1 {
@@ -1421,10 +1420,7 @@
                 this.programaticSwipe("bottom");
             }
         }
-        onResize() {
-            let vh = window.innerHeight * 0.01;
-            this.style.setProperty("--vh", `${vh}px`);
-        }
+        onResize() { }
         connectedCallback() {
             super.connectedCallback();
             // We never detach these so uh...never detach and reattach app-view!
