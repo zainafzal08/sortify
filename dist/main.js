@@ -383,13 +383,20 @@
                 }
                 const playlistId = playlistURI.split(":")[2];
                 const r = yield this.makeRequest(`playlists/${playlistId}/tracks`, {
-                    fields: "items(track(preview_url,name,artists(name),album(name, images)))",
+                    fields: "items(track(uri,preview_url,name,artists(name),album(name, images)))",
                 });
                 return r.items.map((item) => item.track);
             });
         }
         playlistUIDToName(playlistURI) {
             return this.playlists.find((s) => s.uri === playlistURI).name;
+        }
+        addSongToPlaylist(songURI, playlistURI) {
+            if (playlistURI === "__LIKED__") {
+                // TODO.
+                return;
+            }
+            // TODO.
         }
     }
 

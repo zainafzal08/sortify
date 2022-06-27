@@ -35,6 +35,7 @@ export interface AlbumImage {
 }
 
 export interface Song {
+  uri: string;
   album: {
     images: AlbumImage[];
     name: string;
@@ -286,12 +287,20 @@ export class SpotifyInterface {
     const playlistId = playlistURI.split(":")[2];
     const r = await this.makeRequest(`playlists/${playlistId}/tracks`, {
       fields:
-        "items(track(preview_url,name,artists(name),album(name, images)))",
+        "items(track(uri,preview_url,name,artists(name),album(name, images)))",
     });
     return r.items.map((item: any) => item.track);
   }
 
   playlistUIDToName(playlistURI: string) {
     return this.playlists.find((s) => s.uri === playlistURI).name;
+  }
+
+  addSongToPlaylist(songURI: string, playlistURI: string) {
+    if (playlistURI === "__LIKED__") {
+      // TODO.
+      return;
+    }
+    // TODO.
   }
 }
