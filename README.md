@@ -2,16 +2,12 @@
 
 - [ ] Implement finish state.
 - [ ] Actually commit edits to spotify.
-- [ ] Allow users to read / write to liked songs.
 - [ ] Fix weird scroll when dragging card to bottom / right.
-- [ ] Fix issue with failing to start up without local storage clear. (refresh tokens consistently fail?)
 - [ ] Handle empty playlists.
-- [ ] Remove ability to resume a queue, force user to re-setup every time.
-- [ ] Handle limits correctly. playlist fetch is likely to only get the first
-      50 songs in a playlist. We might wanna dynamically fetch more tho.
 
 # P2
 
+- [ ] If you swipe too fast you get `Uncaught (in promise) DOMException: The play() request was interrupted by a call to pause(). https://goo.gl/LdLk22`
 - [ ] Move all remaining todo items to github issues.
 - [ ] Add settings dialog
   - [ ] Allow user to adjust volume.
@@ -24,6 +20,10 @@
 - [ ] Refactor code cause it's disgusting lmao.
 - [ ] Apply for quota upgrade with spotify. Rekon this will be big.
 - [ ] Allow for songs to be removed from their original playlist.
+
+# Needs verification
+
+- [ ] Make sure app can now handle using refresh tokens.
 
 # Done
 
@@ -43,3 +43,8 @@
   - [x] Playlist UI doesn't have enough room on mobile.
 - [x] Make scrolling playlist regions have fade in / out.
 - [x] Trigger auto scroll regions on resize
+- [x] Allow users to read from liked songs.
+- [x] Remove ability to resume a queue, force user to re-setup every time.
+- [x] Add license.
+- [x] Handle limits correctly. playlist fetch is likely to only get the first
+      50 songs in a playlist.

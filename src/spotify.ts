@@ -1,7 +1,12 @@
 import { v4 as uuid } from "uuid";
 
 const DEPLOYED_URL = location.origin + location.pathname;
+const DEBUG = true;
 
+function debugLog(s: string) {
+  if (!DEBUG) return;
+  console.log(s);
+}
 async function sha256(plain: string) {
   const encoder = new TextEncoder();
   const data = encoder.encode(plain);
@@ -45,6 +50,81 @@ export interface Song {
   preview_url: string;
 }
 
+/**
+ * Represents a remote list of data which is fetched regularly whenever a local
+ * cache drops under `minCacheSize` items. More items are requested from remote
+ * via the `getMore` function. The initial cache is populated witg `inital`.
+ */
+export class VirtualList<T> {
+  private cache: T[] = [];
+  private awaitingResponse = false;
+  private requestOffset;
+  private remoteEmpty = false;
+
+  constructor(
+    private readonly minCacheSize: number,
+    private readonly getMore: (offset: number) => Promise<T[]>,
+    initial: T[]
+  ) {
+    this.requestOffset = initial.length;
+    this.cache.push(...initial);
+  }
+
+  private async requestMore() {
+    debugLog("Requesting More Data");
+    if (this.awaitingResponse) {
+      debugLog("... Response already pending, abandoning request");
+      return;
+    }
+    if (this.remoteEmpty) {
+      debugLog("... Remote is empty, abandoning request");
+      return;
+    }
+
+    this.awaitingResponse = true;
+    debugLog("... Requesting Data");
+    const additionalItems = await this.getMore(this.requestOffset);
+    if (additionalItems === null) {
+      debugLog("... null received, marking remote as empty.");
+      this.remoteEmpty = true;
+    } else {
+      debugLog(`... ${additionalItems.length} items recieved.`);
+      this.requestOffset += additionalItems.length;
+      this.cache.push(...additionalItems);
+    }
+    this.awaitingResponse = false;
+  }
+
+  peekHead() {
+    if (this.cache.length > 0) {
+      return this.cache[0];
+    }
+    return null;
+  }
+
+  peekNext() {
+    if (this.cache.length > 1) {
+      return this.cache[1];
+    }
+    return null;
+  }
+
+  pop() {
+    if (this.cache.length <= 0) {
+      throw new Error("Tried to pop from a empty Virtual List");
+    }
+    debugLog("Popping from a virtual list");
+    const result = this.cache.shift();
+    if (this.cache.length < this.minCacheSize) {
+      debugLog(
+        `... Cache size has dipped below minCacheSize (${this.minCacheSize}), requesting more data.`
+      );
+      this.requestMore();
+    }
+    return result;
+  }
+}
+
 export class SpotifyInterface {
   private readonly clientID = "70674e9164054734bec8ba9a94600c65";
   private tokenInfo: null | TokenInfo = null;
@@ -79,22 +159,23 @@ export class SpotifyInterface {
     if (this.tokenInfo.expiry > Date.now()) {
       return true;
     }
+    const oldToken = { ...this.tokenInfo };
+    this.tokenInfo = null;
     // Attempt a refresh.
     const res = await this.formRequest(
       "https://accounts.spotify.com/api/token",
       {
         grant_type: "refresh_token",
-        refresh_token: this.tokenInfo.refreshToken,
+        refresh_token: oldToken.refreshToken,
         client_id: this.clientID,
-      },
-      this.tokenInfo.refreshToken
+      }
     );
     if (res.status !== 200) {
       // Refresh failed.
-      this.tokenInfo = null;
       return false;
     }
     // Refresh success!
+    this.tokenInfo = oldToken;
     this.tokenInfo.accessToken = res.access_token;
     this.tokenInfo.expiry = Date.now() + Number(res.expires_in) * 1000;
     localStorage.setItem("token_info", JSON.stringify(this.tokenInfo));
@@ -120,11 +201,7 @@ export class SpotifyInterface {
     }));
   }
 
-  private async formRequest(
-    href: string,
-    params: Record<string, string>,
-    overrideAuth: string | null = null
-  ) {
+  private async formRequest(href: string, params: Record<string, string>) {
     const url = new URL(href);
     let formBody = [];
     for (const property in params) {
@@ -136,9 +213,7 @@ export class SpotifyInterface {
       "Content-Type": "application/x-www-form-urlencoded",
     };
     if (this.tokenInfo) {
-      headers["Authorization"] = `Bearer ${
-        overrideAuth ? overrideAuth : this.tokenInfo.accessToken
-      }`;
+      headers["Authorization"] = `Bearer ${this.tokenInfo.accessToken}`;
     }
     const r = await fetch(url.href, {
       method: "POST",
@@ -276,20 +351,39 @@ export class SpotifyInterface {
   }
 
   private async getAllLikedSongs() {
-    const r = await this.makeRequest("me/tracks");
-    return r.items.map((item: any) => item.track);
+    const getLikedSongs = async (offset: number) => {
+      const r = await this.makeRequest("me/tracks", {
+        offset: String(offset),
+        limit: "50",
+      });
+      if (r.items.length === 0) {
+        return null;
+      }
+      return r.items.map((item: any) => item.track);
+    };
+    return new VirtualList<Song>(30, getLikedSongs, await getLikedSongs(0));
   }
 
-  async getAllSongsInPlaylist(playlistURI: string): Promise<Song[]> {
+  async getAllSongsInPlaylist(playlistURI: string) {
     if (playlistURI === "__LIKED__") {
       return this.getAllLikedSongs();
     }
+
     const playlistId = playlistURI.split(":")[2];
-    const r = await this.makeRequest(`playlists/${playlistId}/tracks`, {
-      fields:
-        "items(track(uri,preview_url,name,artists(name),album(name, images)))",
-    });
-    return r.items.map((item: any) => item.track);
+    const getSongs = async (offset: number): Promise<Song[]> => {
+      const r = await this.makeRequest(`playlists/${playlistId}/tracks`, {
+        fields:
+          "items(track(uri,preview_url,name,artists(name),album(name, images)))",
+        offset: String(offset),
+        limit: "50",
+      });
+      if (r.items.length === 0) {
+        return null;
+      }
+      return r.items.map((item: any) => item.track);
+    };
+
+    return new VirtualList<Song>(30, getSongs, await getSongs(0));
   }
 
   playlistUIDToName(playlistURI: string) {

@@ -1,6 +1,6 @@
-import { LitElement, html, css } from "lit";
+import { LitElement, html, css, TemplateResult } from "lit";
 import { customElement, property } from "lit/decorators.js";
-import { Song, SpotifyInterface } from "./spotify";
+import { Song, SpotifyInterface, VirtualList } from "./spotify";
 import { styleMap } from "lit-html/directives/style-map.js";
 import { normal } from "color-blend";
 
@@ -9,7 +9,7 @@ interface AppState {
   sinkUp: string;
   sinkLeft: string;
   sinkRight: string;
-  queue: Song[];
+  queue: VirtualList<Song>;
 }
 
 interface Gesture {
@@ -625,23 +625,26 @@ export class AppView extends LitElement {
   }
 
   private commitFrontCard(bucket: "top" | "bottom" | "left" | "right") {
-    this.appState.queue.pop();
-    const { queue } = this.appState;
-    let front: Song, back: Song;
-    if (queue.length === 0) {
-      // Let sort view take over.
-      this.requestUpdate();
-      return;
-    } else if (queue.length === 1) {
-      front = queue[queue.length - 1];
-      back = null;
-    } else {
-      front = queue[queue.length - 1];
-      back = queue[queue.length - 2];
+    const front = this.appState.queue.pop();
+    if (bucket === "top") {
+      this.spotifyInterface.addSongToPlaylist(front.uri, this.appState.sinkUp);
+    } else if (bucket === "left") {
+      this.spotifyInterface.addSongToPlaylist(
+        front.uri,
+        this.appState.sinkLeft
+      );
+    } else if (bucket === "right") {
+      this.spotifyInterface.addSongToPlaylist(
+        front.uri,
+        this.appState.sinkRight
+      );
     }
 
-    this.setAlbumColor(front.album.images[0]);
-    this.playbackSong(front.preview_url);
+    const { queue } = this.appState;
+    let curr = queue.peekHead();
+    let next = queue.peekNext();
+    this.setAlbumColor(curr.album.images[0]);
+    this.playbackSong(curr.preview_url);
 
     const oldFrontCard = this.renderRoot.querySelector(
       ".card.front"
@@ -654,19 +657,19 @@ export class AppView extends LitElement {
     oldBackCard.classList.add("front");
 
     requestAnimationFrame(() => {
-      if (!back) {
+      if (!next) {
         oldFrontCard.remove();
       } else {
         oldFrontCard.classList.remove("front");
         oldFrontCard.classList.add("back");
         oldFrontCard.style.transform = `translate(0px, 0px)`;
         oldFrontCard.classList.remove("animated");
-        oldFrontCard.style.backgroundImage = `linear-gradient(to bottom, rgba(0, 0, 0, 0), rgba(0, 0, 0, .75)), url(${back.album.images[0].url})`;
+        oldFrontCard.style.backgroundImage = `linear-gradient(to bottom, rgba(0, 0, 0, 0), rgba(0, 0, 0, .75)), url(${next.album.images[0].url})`;
         (oldFrontCard.querySelector(".song-name") as HTMLElement).innerText =
-          back.name;
+          next.name;
         (
           oldFrontCard.querySelector(".album-artists") as HTMLElement
-        ).innerText = `${back.album.name} - ${back.artists
+        ).innerText = `${next.album.name} - ${next.artists
           .map((a) => a.name)
           .join(", ")}`;
       }
@@ -856,22 +859,23 @@ export class AppView extends LitElement {
 
   private sortView() {
     const { queue } = this.appState;
-    let front, back;
-    if (queue.length === 0) {
+    let front: TemplateResult, back: TemplateResult;
+    const curr = queue.peekHead();
+    const next = queue.peekNext();
+    if (curr === null && next === null) {
       this.appState = null;
       // TODO: Have a nice "done" screen then a redirect.
       return html`done!`;
-    } else if (queue.length === 1) {
-      front = this.renderCard(queue[queue.length - 1], "front");
+    } else if (curr !== null && next === null) {
+      front = this.renderCard(curr, "front");
       back = null;
     } else {
-      front = this.renderCard(queue[queue.length - 1], "front");
-      back = this.renderCard(queue[queue.length - 2], "back");
+      front = this.renderCard(curr, "front");
+      back = this.renderCard(next, "back");
     }
 
-    const frontSong = queue[queue.length - 1];
-    this.setAlbumColor(frontSong.album.images[0]);
-    this.playbackSong(frontSong.preview_url);
+    this.setAlbumColor(curr.album.images[0]);
+    this.playbackSong(curr.preview_url);
 
     return html`
       <div class="card-container">${front} ${back}</div>
@@ -1004,7 +1008,6 @@ export class AppView extends LitElement {
       sinkLeft: getSelect("sink-left").value,
       queue: await this.spotifyInterface.getAllSongsInPlaylist(source),
     };
-    localStorage.setItem("app-state", JSON.stringify(this.appState));
   }
 
   private updateSetupViewValidity() {
@@ -1160,17 +1163,13 @@ export class AppView extends LitElement {
   render() {
     const state = this.spotifyInterface.connectionState();
     let content;
-    const storedAppState = localStorage.getItem("app-state");
     if (state === "pending-login" || state === "pending-data") {
       content = this.spotifyPendingView();
     } else if (state === "unconnected") {
       content = this.connectSpotifyView();
-    } else if (!this.appState && !storedAppState) {
+    } else if (!this.appState) {
       content = this.setupView();
     } else {
-      if (!this.appState && storedAppState) {
-        this.appState = JSON.parse(storedAppState);
-      }
       content = this.sortView();
       requestAnimationFrame(() => this.activateOverflowScrollRegions());
     }

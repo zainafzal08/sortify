@@ -154,6 +154,9 @@
     }
 
     const DEPLOYED_URL = location.origin + location.pathname;
+    function debugLog(s) {
+        console.log(s);
+    }
     function sha256(plain) {
         return __awaiter(this, void 0, void 0, function* () {
             const encoder = new TextEncoder();
@@ -166,6 +169,72 @@
             .replace(/\+/g, "-")
             .replace(/\//g, "_")
             .replace(/=+$/, "");
+    }
+    /**
+     * Represents a remote list of data which is fetched regularly whenever a local
+     * cache drops under `minCacheSize` items. More items are requested from remote
+     * via the `getMore` function. The initial cache is populated witg `inital`.
+     */
+    class VirtualList {
+        constructor(minCacheSize, getMore, initial) {
+            this.minCacheSize = minCacheSize;
+            this.getMore = getMore;
+            this.cache = [];
+            this.awaitingResponse = false;
+            this.remoteEmpty = false;
+            this.requestOffset = initial.length;
+            this.cache.push(...initial);
+        }
+        requestMore() {
+            return __awaiter(this, void 0, void 0, function* () {
+                debugLog("Requesting More Data");
+                if (this.awaitingResponse) {
+                    debugLog("... Response already pending, abandoning request");
+                    return;
+                }
+                if (this.remoteEmpty) {
+                    debugLog("... Remote is empty, abandoning request");
+                    return;
+                }
+                this.awaitingResponse = true;
+                debugLog("... Requesting Data");
+                const additionalItems = yield this.getMore(this.requestOffset);
+                if (additionalItems === null) {
+                    debugLog("... null received, marking remote as empty.");
+                    this.remoteEmpty = true;
+                }
+                else {
+                    debugLog(`... ${additionalItems.length} items recieved.`);
+                    this.requestOffset += additionalItems.length;
+                    this.cache.push(...additionalItems);
+                }
+                this.awaitingResponse = false;
+            });
+        }
+        peekHead() {
+            if (this.cache.length > 0) {
+                return this.cache[0];
+            }
+            return null;
+        }
+        peekNext() {
+            if (this.cache.length > 1) {
+                return this.cache[1];
+            }
+            return null;
+        }
+        pop() {
+            if (this.cache.length <= 0) {
+                throw new Error("Tried to pop from a empty Virtual List");
+            }
+            debugLog("Popping from a virtual list");
+            const result = this.cache.shift();
+            if (this.cache.length < this.minCacheSize) {
+                debugLog(`... Cache size has dipped below minCacheSize (${this.minCacheSize}), requesting more data.`);
+                this.requestMore();
+            }
+            return result;
+        }
     }
     class SpotifyInterface {
         constructor() {
@@ -201,18 +270,20 @@
                 if (this.tokenInfo.expiry > Date.now()) {
                     return true;
                 }
+                const oldToken = Object.assign({}, this.tokenInfo);
+                this.tokenInfo = null;
                 // Attempt a refresh.
                 const res = yield this.formRequest("https://accounts.spotify.com/api/token", {
                     grant_type: "refresh_token",
-                    refresh_token: this.tokenInfo.refreshToken,
+                    refresh_token: oldToken.refreshToken,
                     client_id: this.clientID,
-                }, this.tokenInfo.refreshToken);
+                });
                 if (res.status !== 200) {
                     // Refresh failed.
-                    this.tokenInfo = null;
                     return false;
                 }
                 // Refresh success!
+                this.tokenInfo = oldToken;
                 this.tokenInfo.accessToken = res.access_token;
                 this.tokenInfo.expiry = Date.now() + Number(res.expires_in) * 1000;
                 localStorage.setItem("token_info", JSON.stringify(this.tokenInfo));
@@ -237,7 +308,7 @@
                 }));
             });
         }
-        formRequest(href, params, overrideAuth = null) {
+        formRequest(href, params) {
             return __awaiter(this, void 0, void 0, function* () {
                 const url = new URL(href);
                 let formBody = [];
@@ -250,7 +321,7 @@
                     "Content-Type": "application/x-www-form-urlencoded",
                 };
                 if (this.tokenInfo) {
-                    headers["Authorization"] = `Bearer ${overrideAuth ? overrideAuth : this.tokenInfo.accessToken}`;
+                    headers["Authorization"] = `Bearer ${this.tokenInfo.accessToken}`;
                 }
                 const r = yield fetch(url.href, {
                     method: "POST",
@@ -372,8 +443,17 @@
         }
         getAllLikedSongs() {
             return __awaiter(this, void 0, void 0, function* () {
-                const r = yield this.makeRequest("me/tracks");
-                return r.items.map((item) => item.track);
+                const getLikedSongs = (offset) => __awaiter(this, void 0, void 0, function* () {
+                    const r = yield this.makeRequest("me/tracks", {
+                        offset: String(offset),
+                        limit: "50",
+                    });
+                    if (r.items.length === 0) {
+                        return null;
+                    }
+                    return r.items.map((item) => item.track);
+                });
+                return new VirtualList(30, getLikedSongs, yield getLikedSongs(0));
             });
         }
         getAllSongsInPlaylist(playlistURI) {
@@ -382,10 +462,18 @@
                     return this.getAllLikedSongs();
                 }
                 const playlistId = playlistURI.split(":")[2];
-                const r = yield this.makeRequest(`playlists/${playlistId}/tracks`, {
-                    fields: "items(track(uri,preview_url,name,artists(name),album(name, images)))",
+                const getSongs = (offset) => __awaiter(this, void 0, void 0, function* () {
+                    const r = yield this.makeRequest(`playlists/${playlistId}/tracks`, {
+                        fields: "items(track(uri,preview_url,name,artists(name),album(name, images)))",
+                        offset: String(offset),
+                        limit: "50",
+                    });
+                    if (r.items.length === 0) {
+                        return null;
+                    }
+                    return r.items.map((item) => item.track);
                 });
-                return r.items.map((item) => item.track);
+                return new VirtualList(30, getSongs, yield getSongs(0));
             });
         }
         playlistUIDToName(playlistURI) {
@@ -997,30 +1085,27 @@
             frontCard.style.transform = `translate(${delta.x}px, ${delta.y}px)`;
         }
         commitFrontCard(bucket) {
-            this.appState.queue.pop();
+            const front = this.appState.queue.pop();
+            if (bucket === "top") {
+                this.spotifyInterface.addSongToPlaylist(front.uri, this.appState.sinkUp);
+            }
+            else if (bucket === "left") {
+                this.spotifyInterface.addSongToPlaylist(front.uri, this.appState.sinkLeft);
+            }
+            else if (bucket === "right") {
+                this.spotifyInterface.addSongToPlaylist(front.uri, this.appState.sinkRight);
+            }
             const { queue } = this.appState;
-            let front, back;
-            if (queue.length === 0) {
-                // Let sort view take over.
-                this.requestUpdate();
-                return;
-            }
-            else if (queue.length === 1) {
-                front = queue[queue.length - 1];
-                back = null;
-            }
-            else {
-                front = queue[queue.length - 1];
-                back = queue[queue.length - 2];
-            }
-            this.setAlbumColor(front.album.images[0]);
-            this.playbackSong(front.preview_url);
+            let curr = queue.peekHead();
+            let next = queue.peekNext();
+            this.setAlbumColor(curr.album.images[0]);
+            this.playbackSong(curr.preview_url);
             const oldFrontCard = this.renderRoot.querySelector(".card.front");
             const oldBackCard = this.renderRoot.querySelector(".card.back");
             oldBackCard.classList.remove("back");
             oldBackCard.classList.add("front");
             requestAnimationFrame(() => {
-                if (!back) {
+                if (!next) {
                     oldFrontCard.remove();
                 }
                 else {
@@ -1028,10 +1113,10 @@
                     oldFrontCard.classList.add("back");
                     oldFrontCard.style.transform = `translate(0px, 0px)`;
                     oldFrontCard.classList.remove("animated");
-                    oldFrontCard.style.backgroundImage = `linear-gradient(to bottom, rgba(0, 0, 0, 0), rgba(0, 0, 0, .75)), url(${back.album.images[0].url})`;
+                    oldFrontCard.style.backgroundImage = `linear-gradient(to bottom, rgba(0, 0, 0, 0), rgba(0, 0, 0, .75)), url(${next.album.images[0].url})`;
                     oldFrontCard.querySelector(".song-name").innerText =
-                        back.name;
-                    oldFrontCard.querySelector(".album-artists").innerText = `${back.album.name} - ${back.artists
+                        next.name;
+                    oldFrontCard.querySelector(".album-artists").innerText = `${next.album.name} - ${next.artists
                     .map((a) => a.name)
                     .join(", ")}`;
                 }
@@ -1193,22 +1278,23 @@
         sortView() {
             const { queue } = this.appState;
             let front, back;
-            if (queue.length === 0) {
+            const curr = queue.peekHead();
+            const next = queue.peekNext();
+            if (curr === null && next === null) {
                 this.appState = null;
                 // TODO: Have a nice "done" screen then a redirect.
                 return $ `done!`;
             }
-            else if (queue.length === 1) {
-                front = this.renderCard(queue[queue.length - 1], "front");
+            else if (curr !== null && next === null) {
+                front = this.renderCard(curr, "front");
                 back = null;
             }
             else {
-                front = this.renderCard(queue[queue.length - 1], "front");
-                back = this.renderCard(queue[queue.length - 2], "back");
+                front = this.renderCard(curr, "front");
+                back = this.renderCard(next, "back");
             }
-            const frontSong = queue[queue.length - 1];
-            this.setAlbumColor(frontSong.album.images[0]);
-            this.playbackSong(frontSong.preview_url);
+            this.setAlbumColor(curr.album.images[0]);
+            this.playbackSong(curr.preview_url);
             return $ `
       <div class="card-container">${front} ${back}</div>
       <div class="controls">
@@ -1331,7 +1417,6 @@
                     sinkLeft: getSelect("sink-left").value,
                     queue: yield this.spotifyInterface.getAllSongsInPlaylist(source),
                 };
-                localStorage.setItem("app-state", JSON.stringify(this.appState));
             });
         }
         updateSetupViewValidity() {
@@ -1475,20 +1560,16 @@
         render() {
             const state = this.spotifyInterface.connectionState();
             let content;
-            const storedAppState = localStorage.getItem("app-state");
             if (state === "pending-login" || state === "pending-data") {
                 content = this.spotifyPendingView();
             }
             else if (state === "unconnected") {
                 content = this.connectSpotifyView();
             }
-            else if (!this.appState && !storedAppState) {
+            else if (!this.appState) {
                 content = this.setupView();
             }
             else {
-                if (!this.appState && storedAppState) {
-                    this.appState = JSON.parse(storedAppState);
-                }
                 content = this.sortView();
                 requestAnimationFrame(() => this.activateOverflowScrollRegions());
             }
