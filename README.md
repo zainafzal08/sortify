@@ -18,7 +18,9 @@
       container captures all pointer events lmao.
 - [ ] Test on firefox and safari.
 - [ ] Refactor code cause it's disgusting lmao.
-- [ ] Apply for quota upgrade with spotify. Rekon this will be big.
+  - [ ] Split into multiple components
+  - [ ] Lean on lit more instead of doing out of cycle dom manip.
+- [ ] Apply for quota upgrade with spotify.
 - [ ] Allow for songs to be removed from their original playlist.
 
 # Needs verification
