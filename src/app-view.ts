@@ -1,15 +1,16 @@
 import { LitElement, html, css, TemplateResult } from "lit";
 import { customElement, property } from "lit/decorators.js";
-import { Song, SpotifyInterface, VirtualList } from "./spotify";
+import { SpotifyInterface } from "./data/spotify";
 import { styleMap } from "lit-html/directives/style-map.js";
 import { normal } from "color-blend";
+import { Song } from "./data/shared_types";
 
 interface AppState {
   source: string;
   sinkUp: string;
   sinkLeft: string;
   sinkRight: string;
-  queue: VirtualList<Song>;
+  queue: any;
 }
 
 interface Gesture {

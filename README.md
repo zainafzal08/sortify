@@ -3,10 +3,15 @@
 - [ ] Implement finish state.
 - [ ] Actually commit edits to spotify.
 - [ ] Fix weird scroll when dragging card to bottom / right.
-- [ ] Handle empty playlists.
+- [ ] Add link to github to file issues.
+- [ ] Send it out to dogfood group.
+- [ ] Apply for quota upgrade with spotify.
 
 # P2
 
+- [ ] Add undo.
+- [ ] Handle empty playlists.
+- [ ] Let user choose when to commit changes.
 - [ ] If you swipe too fast you get `Uncaught (in promise) DOMException: The play() request was interrupted by a call to pause(). https://goo.gl/LdLk22`
 - [ ] Move all remaining todo items to github issues.
 - [ ] Add settings dialog
@@ -20,7 +25,6 @@
 - [ ] Refactor code cause it's disgusting lmao.
   - [ ] Split into multiple components
   - [ ] Lean on lit more instead of doing out of cycle dom manip.
-- [ ] Apply for quota upgrade with spotify.
 - [ ] Allow for songs to be removed from their original playlist.
 
 # Needs verification

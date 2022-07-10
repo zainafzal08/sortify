@@ -1,1 +1,1 @@
-import "./app-view";
+import "./app-controller";
