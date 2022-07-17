@@ -1,18 +1,4 @@
-# P1
-
-- [ ] Add undo.
-- [ ] Handle empty playlists.
-- [ ] Let user choose when to commit changes.
-- [ ] If you swipe too fast you get `Uncaught (in promise) DOMException: The play() request was interrupted by a call to pause(). https://goo.gl/LdLk22` (maybe throttle?)
-- [ ] Add settings dialog
-  - [ ] Allow user to adjust volume.
-  - [ ] Link to github so user can file bugs.
-  - [ ] Allow user to perma turn off playback?
-  - [ ] Allow user to restart.
-- [ ] Once you get to sort view you can't swipe down to get url bar because card
-      container captures all pointer events lmao.
-- [ ] Test on firefox and safari.
-- [ ] Allow for songs to be removed from their original playlist.
+All todos have been moved to github issues. This is just a archive.
 
 # Done
 
