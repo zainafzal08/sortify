@@ -1,21 +1,5 @@
 # P1
 
-- [x] Finish hauntedjs port
-  - [x] Make playlist names scrollable.
-  - [x] Fix ugly non animating fade psudoelements on buttons.
-  - [x] Make playlist buttons do something.
-  - [x] Arrowkey support.
-  - [x] Make play/pause button update live.
-- [x] Implement finish state.
-- [ ] Actually commit edits to spotify.
-- [ ] Fix weird scroll when dragging card to bottom / right.
-- [ ] Add link to github to file issues.
-- [ ] Send it out to dogfood group.
-- [ ] Apply for quota upgrade with spotify.
-- [ ] Move all remaining todo items to github issues.
-
-# P2
-
 - [ ] Add undo.
 - [ ] Handle empty playlists.
 - [ ] Let user choose when to commit changes.
@@ -32,6 +16,14 @@
 
 # Done
 
+- [x] Finish hauntedjs port
+  - [x] Make playlist names scrollable.
+  - [x] Fix ugly non animating fade psudoelements on buttons.
+  - [x] Make playlist buttons do something.
+  - [x] Arrowkey support.
+  - [x] Make play/pause button update live.
+- [x] Implement finish state.
+- [x] Move all remaining todo items to github issues.
 - [x] Actually implement swiping UI.
 - [x] Implement album colors.
 - [x] Implement song playback.
