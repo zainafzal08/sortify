@@ -1,5 +1,11 @@
 import { VirtualList } from "./virtual_list";
 
+export interface AppColors {
+  album: string;
+  surface: string;
+  bg: string;
+}
+
 export interface AppState {
   source: string;
   sinkUp: string;
@@ -30,6 +36,8 @@ export interface Song {
   name: string;
   preview_url: string;
 }
+
+export type Direction = "top" | "left" | "bottom" | "right";
 
 export type ConnectionState =
   | "pending-login"

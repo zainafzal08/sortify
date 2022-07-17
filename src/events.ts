@@ -1,20 +1,4 @@
-import { Song } from "./data/shared_types";
-
-export interface AppColors {
-  album: string;
-  surface: string;
-  bg: string;
-}
-
-export function createUpdateColorsEvent(colors: AppColors) {
-  return new CustomEvent<AppColors>("update-colors", {
-    bubbles: true,
-    composed: true,
-    detail: colors,
-  });
-}
-
-export type UpdateColorsEvent = CustomEvent<AppColors>;
+import { Direction } from "./data/shared_types";
 
 export interface PlaylistSelections {
   source: string;
@@ -32,3 +16,22 @@ export function createStartSortingEvent(selections: PlaylistSelections) {
 }
 
 export type StartSortingEvent = CustomEvent<PlaylistSelections>;
+
+export function createSortSongEvent(direction: Direction) {
+  return new CustomEvent<Direction>("sort-song", {
+    bubbles: true,
+    composed: true,
+    detail: direction,
+  });
+}
+
+export type SortSongEvent = CustomEvent<Direction>;
+
+export function createSimpleEvent(eventName: string) {
+  return new CustomEvent<void>(eventName, {
+    bubbles: true,
+    composed: true,
+  });
+}
+
+export type SimpleEvent = CustomEvent<void>;

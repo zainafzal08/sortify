@@ -6,13 +6,9 @@ import "./pages/loading-page";
 import "./pages/connect-page";
 import "./pages/setup-page";
 import "./pages/sort-page";
-import {
-  AppColors,
-  PlaylistSelections,
-  StartSortingEvent,
-  UpdateColorsEvent,
-} from "./events";
+import { PlaylistSelections, SimpleEvent, StartSortingEvent } from "./events";
 import { AppState, ConnectionState } from "./data/shared_types";
+import { colorManager } from "./data/color_manager";
 
 const ANIMATIONS = css`
   @keyframes move-1 {
@@ -74,11 +70,6 @@ function appController() {
     setConnectionState(spotifyInterface.connectionState());
   });
 
-  const updateColors = (colors: AppColors) => {
-    this.style.setProperty("--album-color", colors.album);
-    this.style.setProperty("--surface-color", colors.surface);
-    this.style.setProperty("--bg-color", colors.bg);
-  };
   const startSorting = async (selections: PlaylistSelections) => {
     setConnectionState("pending-data");
     setAppState({
@@ -110,7 +101,10 @@ function appController() {
       window.history.replaceState({}, document.title, location.pathname);
     }
   };
-
+  const resetApp = () => {
+    setAppState(null);
+    colorManager.resetToDefault();
+  };
   let page: TemplateResult;
   if (
     connectionState === "pending-data" ||
@@ -126,11 +120,7 @@ function appController() {
   }
 
   useEffect(() => {
-    updateColors({
-      album: "#617193",
-      surface: "#555b67",
-      bg: "#2b3241",
-    });
+    colorManager.init();
     randomizeAnimation();
     maybeCompleteLogin();
   }, []);
@@ -240,7 +230,7 @@ function appController() {
     </svg>
     <div
       id="content"
-      @update-colors=${(e: UpdateColorsEvent) => updateColors(e.detail)}
+      @app-reset=${() => resetApp()}
       @start-sorting=${(e: StartSortingEvent) => startSorting(e.detail)}
     >
       ${page}
@@ -249,5 +239,4 @@ function appController() {
 }
 
 export const AppController = component(appController);
-
 customElements.define("app-controller", AppController);

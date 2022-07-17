@@ -9,9 +9,11 @@ import { createStartSortingEvent } from "../events";
 function setupPage() {
   const playlists = spotifyInterface.getAllPlaylists();
   const writablePlaylists = playlists.filter((pl) => pl.writable);
+
+  const getSelect = (id: string) =>
+    this.shadowRoot.querySelector(`#${id}`) as HTMLSelectElement;
+
   const getSelections = () => {
-    const getSelect = (id: string) =>
-      this.shadowRoot.querySelector(`#${id}`) as HTMLSelectElement;
     return {
       source: getSelect("source").value,
       sinkUp: getSelect("sink-up").value,
@@ -36,6 +38,21 @@ function setupPage() {
       return;
     }
     this.dispatchEvent(createStartSortingEvent(getSelections()));
+  };
+
+  const onKeyDown = (e: KeyboardEvent) => {
+    // For debug purposes.
+    if (e.key === "s" && e.ctrlKey) {
+      console.log("Skipping setup.");
+      this.dispatchEvent(
+        createStartSortingEvent({
+          source: playlists[playlists.length - 1].uri,
+          sinkUp: writablePlaylists[0].uri,
+          sinkRight: writablePlaylists[1].uri,
+          sinkLeft: writablePlaylists[2].uri,
+        })
+      );
+    }
   };
 
   useConstructableStylesheets(this, [
@@ -85,9 +102,11 @@ function setupPage() {
   ]);
   useEffect(() => {
     this.addEventListener("input", onInputChange);
+    document.body.addEventListener("keydown", onKeyDown);
     onInputChange();
     return () => {
       this.removeEventListener("input", onInputChange);
+      document.body.removeEventListener("keydown", onKeyDown);
     };
   }, []);
 

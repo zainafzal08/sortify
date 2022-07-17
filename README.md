@@ -1,19 +1,25 @@
 # P1
 
-- [ ] Implement finish state.
+- [x] Finish hauntedjs port
+  - [x] Make playlist names scrollable.
+  - [x] Fix ugly non animating fade psudoelements on buttons.
+  - [x] Make playlist buttons do something.
+  - [x] Arrowkey support.
+  - [x] Make play/pause button update live.
+- [x] Implement finish state.
 - [ ] Actually commit edits to spotify.
 - [ ] Fix weird scroll when dragging card to bottom / right.
 - [ ] Add link to github to file issues.
 - [ ] Send it out to dogfood group.
 - [ ] Apply for quota upgrade with spotify.
+- [ ] Move all remaining todo items to github issues.
 
 # P2
 
 - [ ] Add undo.
 - [ ] Handle empty playlists.
 - [ ] Let user choose when to commit changes.
-- [ ] If you swipe too fast you get `Uncaught (in promise) DOMException: The play() request was interrupted by a call to pause(). https://goo.gl/LdLk22`
-- [ ] Move all remaining todo items to github issues.
+- [ ] If you swipe too fast you get `Uncaught (in promise) DOMException: The play() request was interrupted by a call to pause(). https://goo.gl/LdLk22` (maybe throttle?)
 - [ ] Add settings dialog
   - [ ] Allow user to adjust volume.
   - [ ] Link to github so user can file bugs.
@@ -22,14 +28,7 @@
 - [ ] Once you get to sort view you can't swipe down to get url bar because card
       container captures all pointer events lmao.
 - [ ] Test on firefox and safari.
-- [ ] Refactor code cause it's disgusting lmao.
-  - [ ] Split into multiple components
-  - [ ] Lean on lit more instead of doing out of cycle dom manip.
 - [ ] Allow for songs to be removed from their original playlist.
-
-# Needs verification
-
-- [ ] Make sure app can now handle using refresh tokens.
 
 # Done
 
@@ -54,3 +53,4 @@
 - [x] Add license.
 - [x] Handle limits correctly. playlist fetch is likely to only get the first
       50 songs in a playlist.
+- [x] Make sure app can now handle using refresh tokens.

@@ -57,5 +57,4 @@ function loadingPage() {
 }
 
 export const LoadingPage = component(loadingPage);
-
 customElements.define("loading-page", LoadingPage);

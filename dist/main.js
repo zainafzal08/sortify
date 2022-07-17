@@ -1180,6 +1180,45 @@
     />
   </svg>
 `;
+    const ARROW_LEFT_ICON = $ `
+  <svg viewBox="0 0 24 24">
+    <path d="M15.41,16.58L10.83,12L15.41,7.41L14,6L8,12L14,18L15.41,16.58Z" />
+  </svg>
+`;
+    const ARROW_RIGHT_ICON = $ `
+  <svg viewBox="0 0 24 24">
+    <path d="M8.59,16.58L13.17,12L8.59,7.41L10,6L16,12L10,18L8.59,16.58Z" />
+  </svg>
+`;
+    const ARROW_UP_ICON = $ `
+  <svg viewBox="0 0 24 24">
+    <path d="M7.41,15.41L12,10.83L16.59,15.41L18,14L12,8L6,14L7.41,15.41Z" />
+  </svg>
+`;
+    const SKIP_ICON = $ `
+  <svg viewBox="0 0 24 24">
+    <path
+      d="M12,14A2,2 0 0,1 14,16A2,2 0 0,1 12,18A2,2 0 0,1 10,16A2,2 0 0,1 12,14M23.46,8.86L21.87,15.75L15,14.16L18.8,11.78C17.39,9.5 14.87,8 12,8C8.05,8 4.77,10.86 4.12,14.63L2.15,14.28C2.96,9.58 7.06,6 12,6C15.58,6 18.73,7.89 20.5,10.72L23.46,8.86Z"
+    />
+  </svg>
+`;
+    const ERROR_ICON = $ `
+  <svg viewBox="0 0 24 24">
+    <path
+      d="M13,13H11V7H13M13,17H11V15H13M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2Z"
+    />
+  </svg>
+`;
+    const PLAY_ICON = $ `
+  <svg viewBox="0 0 24 24">
+    <path d="M8,5.14V19.14L19,12.14L8,5.14Z" />
+  </svg>
+`;
+    const PAUSE_ICON = $ `
+  <svg viewBox="0 0 24 24">
+    <path d="M14,19H18V5H14M6,19H10V5H6V19Z" />
+  </svg>
+`;
 
     function loadingPage() {
         useConstructableStylesheets(this, [
@@ -1236,20 +1275,98 @@
     const LoadingPage = component(loadingPage);
     customElements.define("loading-page", LoadingPage);
 
+    const DEFAULT_COLORS = {
+        album: "#617193",
+        surface: "#555b67",
+        bg: "#2b3241",
+    };
+    /**
+     * Owns setting and updating the css variables which define the color scheme
+     * for the app.
+     */
+    class ColorManager {
+        constructor() {
+            this.albumColorComputeToken = 0;
+            this.colors = DEFAULT_COLORS;
+            this.hiddenCanvas = null;
+            this.changeListeners = new Set();
+        }
+        injectColors() {
+            const root = document.body;
+            root.style.setProperty("--album-color", this.colors.album);
+            root.style.setProperty("--surface-color", this.colors.surface);
+            root.style.setProperty("--bg-color", this.colors.bg);
+        }
+        init() {
+            this.injectColors();
+            this.hiddenCanvas = document.createElement("canvas");
+            this.hiddenCanvas.id = "hidden-canvas";
+            this.hiddenCanvas.style.position = "absolute";
+            this.hiddenCanvas.style.left = "-1000px";
+            this.hiddenCanvas.style.opacity = "0";
+            this.hiddenCanvas.style.pointerEvents = "none";
+            document.body.appendChild(this.hiddenCanvas);
+        }
+        updateColorsFromAlbum(albumImg) {
+            return __awaiter(this, void 0, void 0, function* () {
+                this.albumColorComputeToken++;
+                const token = this.albumColorComputeToken;
+                const hiddenCanvas = this.hiddenCanvas;
+                const colors = yield extractColorsFromImage(albumImg, hiddenCanvas);
+                if (token < this.albumColorComputeToken) {
+                    // Another call to this function has happened, ignore this one.
+                    return;
+                }
+                this.colors = colors;
+                for (const listener of this.changeListeners) {
+                    listener();
+                }
+                this.injectColors();
+            });
+        }
+        resetToDefault() {
+            this.colors = DEFAULT_COLORS;
+            this.injectColors();
+        }
+        /**
+         * Registers a listener to be called before the page color scheme changes.
+         * Is not called for the initial color scheme set on page first load.
+         */
+        addColorChangeListener(listener) {
+            this.changeListeners.add(listener);
+        }
+        /** Removes a listener which was previously registered with `addColorChangeListener`. */
+        removeColorChangeListener(listener) {
+            this.changeListeners.delete(listener);
+        }
+    }
+    const colorManager = new ColorManager();
+
     function appButton({ icon }) {
+        useState(false);
         useConstructableStylesheets(this, [
             r$3 `
+      :host {
+        --btn-bg-color: white;
+        --btn-txt-color: var(--bg-color);
+      }
+      :host([secondary]) {
+        --btn-bg-color: var(--surface-color);
+        --btn-txt-color: white;
+      }
       button {
         padding: 0.5rem 1rem;
         padding-left: 0.7rem;
-        background: white;
-        color: rgb(43, 50, 65);
+        background: var(--btn-bg-color);
+        color: var(--btn-txt-color);
         border: none;
         border-radius: 2rem;
         display: flex;
         align-items: center;
+        justify-content: center;
         cursor: pointer;
         transition: all 200ms ease-in-out;
+        width: inherit;
       }
       :host([disabled]) button {
         opacity: 0.5;
@@ -1267,16 +1384,86 @@
         fill: rgb(43, 50, 65);
         margin-right: 0.5rem;
       }
-      button span {
+      :host([secondary]) button svg {
+        fill: white;
+      }
+      button .scrolling {
         overflow: hidden;
         white-space: nowrap;
+        position: relative;
+        max-width: 100%;
+      }
+      button .scrolling div {
+        padding-left: 4px;
+        padding-right: 4px;
+        width: fit-content;
+      }
+      :host([auto-scroll]:not([unstable])) button .scrolling:before {
+        transition: all 200ms ease-in-out;
+        content: "";
+        position: absolute;
+        left: 0;
+        top: 0;
+        height: 100%;
+        width: 4px;
+        background: linear-gradient(90deg, var(--btn-bg-color), transparent);
+        z-index: 2;
+      }
+      :host([auto-scroll]:not([unstable])) button .scrolling:after {
+        transition: all 200ms ease-in-out;
+        content: "";
+        position: absolute;
+        right: 0;
+        top: 0;
+        height: 100%;
+        width: 4px;
+        background: linear-gradient(-90deg, var(--btn-bg-color), transparent);
+        z-index: 2;
+      }
+      @keyframes marquee {
+        0% {
+          transform: translateX(0%);
+        }
+        20% {
+          transform: translateX(0%);
+        }
+        100% {
+          transform: translateX(-100%);
+        }
+      }
+      button .scrolling div.marquee {
+        animation: marquee 8s infinite linear;
       }
     `,
         ]);
+        const beforeColorSchemeUnstable = () => {
+            this.toggleAttribute("unstable", true);
+            setTimeout(() => {
+                this.toggleAttribute("unstable", false);
+            }, 210);
+        };
+        useEffect(() => {
+            colorManager.addColorChangeListener(beforeColorSchemeUnstable);
+            const container = this.shadowRoot.querySelector(".scrolling");
+            const text = this.shadowRoot.querySelector(".scrolling div");
+            const containerWidth = container.getBoundingClientRect().width;
+            const textWidth = text.getBoundingClientRect().width;
+            if (containerWidth < textWidth) {
+                text.classList.add("marquee");
+            }
+            else {
+                text.classList.remove("marquee");
+            }
+            return () => {
+                colorManager.removeColorChangeListener(beforeColorSchemeUnstable);
+            };
+        }, []);
         return $ `
     <button>
       ${icon}
-      <span><slot></slot></span>
+      <div class="scrolling">
+        <div><slot></slot></div>
+      </div>
     </button>
   `;
     }
@@ -1321,13 +1508,6 @@
     const ConnectPage = component(connectPage);
     customElements.define("connect-page", ConnectPage);
 
-    function createUpdateColorsEvent(colors) {
-        return new CustomEvent("update-colors", {
-            bubbles: true,
-            composed: true,
-            detail: colors,
-        });
-    }
     function createStartSortingEvent(selections) {
         return new CustomEvent("start-sorting", {
             bubbles: true,
@@ -1335,12 +1515,25 @@
             detail: selections,
         });
     }
+    function createSortSongEvent(direction) {
+        return new CustomEvent("sort-song", {
+            bubbles: true,
+            composed: true,
+            detail: direction,
+        });
+    }
+    function createSimpleEvent(eventName) {
+        return new CustomEvent(eventName, {
+            bubbles: true,
+            composed: true,
+        });
+    }
 
     function setupPage() {
         const playlists = spotifyInterface.getAllPlaylists();
         const writablePlaylists = playlists.filter((pl) => pl.writable);
+        const getSelect = (id) => this.shadowRoot.querySelector(`#${id}`);
         const getSelections = () => {
-            const getSelect = (id) => this.shadowRoot.querySelector(`#${id}`);
             return {
                 source: getSelect("source").value,
                 sinkUp: getSelect("sink-up").value,
@@ -1364,6 +1557,18 @@
                 return;
             }
             this.dispatchEvent(createStartSortingEvent(getSelections()));
+        };
+        const onKeyDown = (e) => {
+            // For debug purposes.
+            if (e.key === "s" && e.ctrlKey) {
+                console.log("Skipping setup.");
+                this.dispatchEvent(createStartSortingEvent({
+                    source: playlists[playlists.length - 1].uri,
+                    sinkUp: writablePlaylists[0].uri,
+                    sinkRight: writablePlaylists[1].uri,
+                    sinkLeft: writablePlaylists[2].uri,
+                }));
+            }
         };
         useConstructableStylesheets(this, [
             r$3 `
@@ -1412,9 +1617,11 @@
         ]);
         useEffect(() => {
             this.addEventListener("input", onInputChange);
+            document.body.addEventListener("keydown", onKeyDown);
             onInputChange();
             return () => {
                 this.removeEventListener("input", onInputChange);
+                document.body.removeEventListener("keydown", onKeyDown);
             };
         }, []);
         return $ `
@@ -1516,9 +1723,167 @@
     const SortCard = component(sortCard);
     customElements.define("sort-card", SortCard);
 
+    class PlaybackManager {
+        constructor() {
+            this.paused = false;
+        }
+        get active() {
+            return this.audioElement !== null;
+        }
+        setTrack(song) {
+            var _a;
+            (_a = this.audioElement) === null || _a === void 0 ? void 0 : _a.pause();
+            if (!song.preview_url) {
+                this.audioElement = null;
+            }
+            this.audioElement = new Audio(song.preview_url);
+            this.audioElement.volume = 0.5;
+            this.audioElement.loop = true;
+            if (!this.paused) {
+                this.audioElement.play();
+            }
+        }
+        playTrack() {
+            var _a;
+            this.paused = false;
+            (_a = this.audioElement) === null || _a === void 0 ? void 0 : _a.play();
+        }
+        pauseTrack() {
+            var _a;
+            this.paused = true;
+            (_a = this.audioElement) === null || _a === void 0 ? void 0 : _a.pause();
+        }
+    }
+    const playbackManager = new PlaybackManager();
+
+    function sortControls({ appState }) {
+        const [paused, setPaused] = useState(false);
+        useConstructableStylesheets(this, [
+            r$3 `
+      :host {
+        display: flex;
+        padding-bottom: 2rem;
+        height: 200px;
+        width: 100%;
+        align-items: center;
+        justify-content: center;
+      }
+      .col {
+        height: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: space-around;
+        flex-direction: column;
+        padding: 0 0.5rem;
+        width: 33%;
+        box-sizing: border-box;
+      }
+      .col:first-child {
+        align-items: flex-end;
+      }
+      .col:last-child {
+        align-items: flex-start;
+      }
+      app-button {
+        width: 100%;
+      }
+    `,
+        ]);
+        const togglePlayback = () => {
+            if (!playbackManager.active) {
+                return;
+            }
+            if (paused) {
+                playbackManager.playTrack();
+                setPaused(false);
+            }
+            else {
+                playbackManager.pauseTrack();
+                setPaused(true);
+            }
+        };
+        const sortEvent = (direction) => {
+            this.dispatchEvent(createSortSongEvent(direction));
+        };
+        const leftPlaylist = spotifyInterface.playlistUIDToName(appState.sinkLeft);
+        const upPlaylist = spotifyInterface.playlistUIDToName(appState.sinkUp);
+        const rightPlaylist = spotifyInterface.playlistUIDToName(appState.sinkRight);
+        let playbackState;
+        let playbackIcon;
+        if (!playbackManager.active) {
+            playbackState = "Missing";
+            playbackIcon = ERROR_ICON;
+        }
+        else {
+            playbackState = paused ? "Play" : "Paused";
+            playbackIcon = paused ? PLAY_ICON : PAUSE_ICON;
+        }
+        return $ `
+    <div class="col">
+      <app-button
+        auto-scroll
+        @click=${() => sortEvent("left")}
+        secondary
+        .icon=${ARROW_LEFT_ICON}
+      >
+        ${leftPlaylist}
+      </app-button>
+    </div>
+    <div class="col">
+      <app-button
+        auto-scroll
+        @click=${() => sortEvent("top")}
+        secondary
+        .icon=${ARROW_UP_ICON}
+      >
+        ${upPlaylist}
+      </app-button>
+      <app-button @click=${togglePlayback} .icon=${playbackIcon}>
+        ${playbackState}
+      </app-button>
+      <app-button
+        auto-scroll
+        @click=${() => sortEvent("bottom")}
+        secondary
+        .icon=${SKIP_ICON}
+      >
+        Skip
+      </app-button>
+    </div>
+    <div class="col">
+      <app-button
+        auto-scroll
+        @click=${() => sortEvent("right")}
+        secondary
+        .icon=${ARROW_RIGHT_ICON}
+        >${rightPlaylist}</app-button
+      >
+    </div>
+  `;
+    }
+    const SortControls = component(sortControls);
+    customElements.define("sort-controls", SortControls);
+
+    let currentGesture = null;
+    function keyToDirection(key) {
+        if (key === "ArrowLeft") {
+            return "left";
+        }
+        else if (key === "ArrowRight") {
+            return "right";
+        }
+        else if (key === "ArrowUp") {
+            return "top";
+        }
+        else if (key === "ArrowDown") {
+            return "bottom";
+        }
+        else {
+            return null;
+        }
+    }
     function sortPage({ appState }) {
-        let currentGesture = null;
-        let currentAlbumColorComputeToken = 0;
+        const [done, setDone] = useState(false);
         const commitFrontCard = (bucket) => {
             const song = appState.queue.pop();
             let playlist = null;
@@ -1534,6 +1899,10 @@
             if (playlist !== null) {
                 spotifyInterface.addSongToPlaylist(song.uri, playlist);
             }
+            if (appState.queue.peekHead() === null) {
+                setDone(true);
+                return;
+            }
             // We actually dodge doing a lit rerender here since the card z-index
             // shuffle results in weird artifacts that ruin the experience. Instead we
             // "promote" the back card to now be the front card and update the front
@@ -1544,12 +1913,18 @@
             backCard.classList.remove("back");
             backCard.classList.add("front");
             const head = appState.queue.peekHead();
-            updateColorsFromAlbum(head.album.images[0]);
-            frontCard.classList.remove("front");
-            frontCard.classList.remove("animated");
-            frontCard.classList.add("back");
-            frontCard.style.transform = "";
-            frontCard.song = appState.queue.peekNext();
+            colorManager.updateColorsFromAlbum(head.album.images[0]);
+            playbackManager.setTrack(head);
+            if (appState.queue.peekNext()) {
+                frontCard.classList.remove("front");
+                frontCard.classList.remove("animated");
+                frontCard.classList.add("back");
+                frontCard.style.transform = "";
+                frontCard.song = appState.queue.peekNext();
+            }
+            else {
+                frontCard.remove();
+            }
         };
         const onCardPick = (e) => {
             if (currentGesture)
@@ -1574,6 +1949,37 @@
             };
             frontCard.style.transform = `translate(${delta.x}px, ${delta.y}px)`;
         };
+        const throwAndCommitCard = (direction) => {
+            const frontCard = this.shadowRoot.querySelector("sort-card.front");
+            const winWidth = window.innerWidth;
+            const winHeight = window.innerHeight;
+            let finalX, finalY;
+            if (direction === "top") {
+                finalX = 0;
+                finalY = -winHeight;
+            }
+            else if (direction === "left") {
+                finalX = -winWidth;
+                finalY = 0;
+            }
+            else if (direction === "right") {
+                finalX = winWidth;
+                finalY = 0;
+            }
+            else if (direction === "bottom") {
+                finalX = 0;
+                finalY = winHeight;
+            }
+            else {
+                finalX = 0;
+                finalY = 0;
+            }
+            frontCard.classList.add("animated");
+            frontCard.style.transform = `translate(${finalX}px, ${finalY}px)`;
+            if (direction !== null) {
+                window.setTimeout(() => commitFrontCard(direction), 250);
+            }
+        };
         const onCardDrop = (e) => {
             if (!currentGesture)
                 return;
@@ -1587,48 +1993,31 @@
             };
             const winWidth = window.innerWidth;
             const winHeight = window.innerHeight;
-            let finalX, finalY;
             if (velocity.y < -1 || bb.y < CARD_SIZE * -0.25) {
-                finalX = 0;
-                finalY = -winHeight;
-                window.setTimeout(() => commitFrontCard("top"), 250);
+                throwAndCommitCard("top");
             }
             else if (velocity.x < -1 || bb.x < CARD_SIZE * -0.25) {
-                finalX = -winWidth;
-                finalY = 0;
-                window.setTimeout(() => commitFrontCard("left"), 250);
+                throwAndCommitCard("left");
             }
             else if (velocity.x > 1 ||
                 bb.x + CARD_SIZE > winWidth + CARD_SIZE * 0.25) {
-                finalX = winWidth;
-                finalY = 0;
-                window.setTimeout(() => commitFrontCard("right"), 250);
+                throwAndCommitCard("right");
             }
             else if (velocity.y > 1 ||
                 bb.y + CARD_SIZE > winHeight + CARD_SIZE * 0.25) {
-                finalX = 0;
-                finalY = winHeight;
-                window.setTimeout(() => commitFrontCard("bottom"), 250);
+                throwAndCommitCard("bottom");
             }
             else {
-                finalX = 0;
-                finalY = 0;
+                throwAndCommitCard(null);
             }
             currentGesture = null;
-            frontCard.classList.add("animated");
-            frontCard.style.transform = `translate(${finalX}px, ${finalY}px)`;
         };
-        const updateColorsFromAlbum = (albumImg) => __awaiter(this, void 0, void 0, function* () {
-            currentAlbumColorComputeToken++;
-            const token = currentAlbumColorComputeToken;
-            const hiddenCanvas = this.shadowRoot.querySelector("#hidden-canvas");
-            const colors = yield extractColorsFromImage(albumImg, hiddenCanvas);
-            if (token < currentAlbumColorComputeToken) {
-                // Another call to this function has happened, ignore this one.
+        const programaticSwipe = (direction) => {
+            if (direction === null) {
                 return;
             }
-            this.dispatchEvent(createUpdateColorsEvent(colors));
-        });
+            throwAndCommitCard(direction);
+        };
         const head = appState.queue.peekHead();
         const next = appState.queue.peekNext();
         let frontCard = null;
@@ -1648,17 +2037,33 @@
     ></sort-card>`;
         }
         if (!head && !next) {
-            // TODO: Dispatch done event.
-            // TODO: Make this nice.
-            return $ ` Done. `;
+            return $ `
+      <div class="done-message">
+        <h1 class="title">All Done!</h1>
+        <p class="subtitle">
+          Mighty fast fingers you have there, you've sorted all the songs in
+          this playlist! Wanna go again?
+        </p>
+        <app-button
+          .icon=${SORT_ICON}
+          @click=${() => this.dispatchEvent(createSimpleEvent("app-reset"))}
+        >
+          Restart
+        </app-button>
+      </div>
+    `;
         }
         useEffect(() => {
-            updateColorsFromAlbum(head.album.images[0]);
+            colorManager.updateColorsFromAlbum(head.album.images[0]);
+            playbackManager.setTrack(head);
+            const onKeydown = (e) => programaticSwipe(keyToDirection(e.key));
             this.addEventListener("pointermove", onCardDrag);
             this.addEventListener("pointerup", onCardDrop);
+            document.body.addEventListener("keydown", onKeydown);
             return () => {
                 this.removeEventListener("pointermove", onCardDrag);
                 this.removeEventListener("pointerup", onCardDrop);
+                document.body.removeEventListener("keydown", onKeydown);
             };
         }, []);
         useConstructableStylesheets(this, [
@@ -1666,6 +2071,8 @@
       :host {
         width: 100%;
         height: 100%;
+        display: flex;
+        flex-direction: column;
       }
       .card-container {
         width: 100%;
@@ -1675,25 +2082,35 @@
         position: relative;
         touch-action: none;
       }
+      .title {
+        color: white;
+        font-size: 3rem;
+        margin: 0;
+        padding-bottom: 1rem;
+      }
+      .subtitle {
+        color: rgba(255, 255, 255, 0.7);
+        font-size: 1rem;
+        padding-bottom: 1.5rem;
+        text-align: center;
+      }
+      .done-message {
+        width: 100%;
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+      }
     `,
         ]);
         return $ `
     <div class="card-container">${frontCard} ${backCard}</div>
-    <div class="controls">
-      <div class="col">
-        <app-button></app-button>
-      </div>
-      <div class="col">
-        <app-button></app-button>
-        <app-button></app-button>
-        <app-button></app-button>
-      </div>
-      <div class="col">
-        <app-button></app-button>
-      </div>
-    </div>
-
-    <canvas id="hidden-canvas"></canvas>
+    <sort-controls
+      @sort-song=${(e) => programaticSwipe(e.detail)}
+      .appState=${appState}
+    >
+    </sort-controls>
   `;
     }
     const SortPage = component(sortPage);
@@ -1755,11 +2172,6 @@
         spotifyInterface.onStateChange(() => {
             setConnectionState(spotifyInterface.connectionState());
         });
-        const updateColors = (colors) => {
-            this.style.setProperty("--album-color", colors.album);
-            this.style.setProperty("--surface-color", colors.surface);
-            this.style.setProperty("--bg-color", colors.bg);
-        };
         const startSorting = (selections) => __awaiter(this, void 0, void 0, function* () {
             setConnectionState("pending-data");
             setAppState(Object.assign(Object.assign({}, selections), { queue: yield spotifyInterface.getAllSongsInPlaylist(selections.source) }));
@@ -1783,6 +2195,10 @@
                 window.history.replaceState({}, document.title, location.pathname);
             }
         });
+        const resetApp = () => {
+            setAppState(null);
+            colorManager.resetToDefault();
+        };
         let page;
         if (connectionState === "pending-data" ||
             connectionState === "pending-login") {
@@ -1798,11 +2214,7 @@
             page = $ `<sort-page .appState=${appState}></sort-page>`;
         }
         useEffect(() => {
-            updateColors({
-                album: "#617193",
-                surface: "#555b67",
-                bg: "#2b3241",
-            });
+            colorManager.init();
             randomizeAnimation();
             maybeCompleteLogin();
         }, []);
@@ -1910,7 +2322,7 @@
     </svg>
     <div
       id="content"
-      @update-colors=${(e) => updateColors(e.detail)}
+      @app-reset=${() => resetApp()}
       @start-sorting=${(e) => startSorting(e.detail)}
     >
       ${page}

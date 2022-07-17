@@ -15,3 +15,49 @@ export const SORT_ICON = html`
     />
   </svg>
 `;
+
+export const ARROW_LEFT_ICON = html`
+  <svg viewBox="0 0 24 24">
+    <path d="M15.41,16.58L10.83,12L15.41,7.41L14,6L8,12L14,18L15.41,16.58Z" />
+  </svg>
+`;
+
+export const ARROW_RIGHT_ICON = html`
+  <svg viewBox="0 0 24 24">
+    <path d="M8.59,16.58L13.17,12L8.59,7.41L10,6L16,12L10,18L8.59,16.58Z" />
+  </svg>
+`;
+
+export const ARROW_UP_ICON = html`
+  <svg viewBox="0 0 24 24">
+    <path d="M7.41,15.41L12,10.83L16.59,15.41L18,14L12,8L6,14L7.41,15.41Z" />
+  </svg>
+`;
+
+export const SKIP_ICON = html`
+  <svg viewBox="0 0 24 24">
+    <path
+      d="M12,14A2,2 0 0,1 14,16A2,2 0 0,1 12,18A2,2 0 0,1 10,16A2,2 0 0,1 12,14M23.46,8.86L21.87,15.75L15,14.16L18.8,11.78C17.39,9.5 14.87,8 12,8C8.05,8 4.77,10.86 4.12,14.63L2.15,14.28C2.96,9.58 7.06,6 12,6C15.58,6 18.73,7.89 20.5,10.72L23.46,8.86Z"
+    />
+  </svg>
+`;
+
+export const ERROR_ICON = html`
+  <svg viewBox="0 0 24 24">
+    <path
+      d="M13,13H11V7H13M13,17H11V15H13M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2Z"
+    />
+  </svg>
+`;
+
+export const PLAY_ICON = html`
+  <svg viewBox="0 0 24 24">
+    <path d="M8,5.14V19.14L19,12.14L8,5.14Z" />
+  </svg>
+`;
+
+export const PAUSE_ICON = html`
+  <svg viewBox="0 0 24 24">
+    <path d="M14,19H18V5H14M6,19H10V5H6V19Z" />
+  </svg>
+`;
