@@ -2,7 +2,13 @@ import "weightless/slider";
 
 import { component, useState } from "haunted";
 import { css, html } from "lit";
-import { CLOSE_ICON, GITHUB_ICON, HEART_ICON, SORT_ICON } from "../app_icons";
+import {
+  ANON_ICON,
+  CLOSE_ICON,
+  GITHUB_ICON,
+  HEART_ICON,
+  SORT_ICON,
+} from "../app_icons";
 import { playbackManager } from "../data/playback_manager";
 import { createSimpleEvent } from "../events";
 import { useConstructableStylesheets } from "../helpers";
@@ -46,6 +52,7 @@ function settingsDialog() {
         width: 100%;
         color: rgba(255, 255, 255, 0.7);
         font-size: 0.7rem;
+        margin: 1rem 0 0.5rem 0;
       }
       .button-list {
         width: 100%;
@@ -59,7 +66,11 @@ function settingsDialog() {
       }
       .range-slider-container {
         display: flex;
-        padding: 1rem 0;
+      }
+      p {
+        font-size: 0.7rem;
+        color: rgba(255, 255, 255, 0.5);
+        margin: 0.3rem 0 0.8rem 0;
       }
       .range-slider-container p {
         font-size: 1.3rem;
@@ -74,7 +85,7 @@ function settingsDialog() {
       }
       .footer {
         width: 100%;
-        padding-top: 32px;
+        padding-top: 2rem;
       }
       .footer p {
         margin: 0;
@@ -132,6 +143,10 @@ function settingsDialog() {
     playbackManager.volume = value;
     setVolume(value);
   };
+  const clearStorage = () => {
+    localStorage.clear();
+    location.reload();
+  };
   return html`
     <div class="dialog">
       <h2>Options</h2>
@@ -146,6 +161,16 @@ function settingsDialog() {
             updateVolume(Number((e.target as HTMLInputElement).value))}
         ></wl-slider>
       </div>
+      <label> Privacy </label>
+      <p>
+        Sortify has no server and doesn't store any of your spotify information,
+        however it does have a local copy of an access key to your spotify
+        account, to clear this tap below.
+      </p>
+      <app-button @click=${clearStorage} small .icon=${ANON_ICON}>
+        Clear spotify access.
+      </app-button>
+      <label> Misc </label>
       <div class="button-list">
         <a href="https://github.com/zainafzal08/sortify/issues/new">
           <app-button small .icon=${GITHUB_ICON}> File Bug </app-button>

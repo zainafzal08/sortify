@@ -1255,6 +1255,13 @@ const CLOSE_ICON = $ `
     />
   </svg>
 `;
+const ANON_ICON = $ `
+  <svg viewBox="0 0 24 24">
+    <path
+      d="M11.83,9L15,12.16C15,12.11 15,12.05 15,12A3,3 0 0,0 12,9C11.94,9 11.89,9 11.83,9M7.53,9.8L9.08,11.35C9.03,11.56 9,11.77 9,12A3,3 0 0,0 12,15C12.22,15 12.44,14.97 12.65,14.92L14.2,16.47C13.53,16.8 12.79,17 12,17A5,5 0 0,1 7,12C7,11.21 7.2,10.47 7.53,9.8M2,4.27L4.28,6.55L4.73,7C3.08,8.3 1.78,10 1,12C2.73,16.39 7,19.5 12,19.5C13.55,19.5 15.03,19.2 16.38,18.66L16.81,19.08L19.73,22L21,20.73L3.27,3M12,7A5,5 0 0,1 17,12C17,12.64 16.87,13.26 16.64,13.82L19.57,16.75C21.07,15.5 22.27,13.86 23,12C21.27,7.61 17,4.5 12,4.5C10.6,4.5 9.26,4.75 8,5.2L10.17,7.35C10.74,7.13 11.35,7 12,7Z"
+    />
+  </svg>
+`;
 
 function loadingPage() {
     useConstructableStylesheets(this, [
@@ -1550,7 +1557,7 @@ function connectPage() {
     ]);
     return $ `
     <h1 class="title">Sortify</h1>
-    <p class="subtitle">Sort your songs into playlists with a simple swipe</p>
+    <p class="subtitle">Sort your songs into playlists with a simple swipe.</p>
     <app-button
       @click=${() => spotifyInterface.startLogin()}
       .icon=${SPOTIFY_ICON}
@@ -5162,6 +5169,7 @@ function settingsDialog() {
         width: 100%;
         color: rgba(255, 255, 255, 0.7);
         font-size: 0.7rem;
+        margin: 1rem 0 0.5rem 0;
       }
       .button-list {
         width: 100%;
@@ -5175,7 +5183,11 @@ function settingsDialog() {
       }
       .range-slider-container {
         display: flex;
-        padding: 1rem 0;
+      }
+      p {
+        font-size: 0.7rem;
+        color: rgba(255, 255, 255, 0.5);
+        margin: 0.3rem 0 0.8rem 0;
       }
       .range-slider-container p {
         font-size: 1.3rem;
@@ -5190,7 +5202,7 @@ function settingsDialog() {
       }
       .footer {
         width: 100%;
-        padding-top: 32px;
+        padding-top: 2rem;
       }
       .footer p {
         margin: 0;
@@ -5247,6 +5259,10 @@ function settingsDialog() {
         playbackManager.volume = value;
         setVolume(value);
     };
+    const clearStorage = () => {
+        localStorage.clear();
+        location.reload();
+    };
     return $ `
     <div class="dialog">
       <h2>Options</h2>
@@ -5260,6 +5276,16 @@ function settingsDialog() {
           @input=${(e) => updateVolume(Number(e.target.value))}
         ></wl-slider>
       </div>
+      <label> Privacy </label>
+      <p>
+        Sortify has no server and doesn't store any of your spotify information,
+        however it does have a local copy of an access key to your spotify
+        account, to clear this tap below.
+      </p>
+      <app-button @click=${clearStorage} small .icon=${ANON_ICON}>
+        Clear spotify access.
+      </app-button>
+      <label> Misc </label>
       <div class="button-list">
         <a href="https://github.com/zainafzal08/sortify/issues/new">
           <app-button small .icon=${GITHUB_ICON}> File Bug </app-button>

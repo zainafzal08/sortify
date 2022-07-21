@@ -32,7 +32,7 @@ function connectPage() {
 
   return html`
     <h1 class="title">Sortify</h1>
-    <p class="subtitle">Sort your songs into playlists with a simple swipe</p>
+    <p class="subtitle">Sort your songs into playlists with a simple swipe.</p>
     <app-button
       @click=${() => spotifyInterface.startLogin()}
       .icon=${SPOTIFY_ICON}
