@@ -11,12 +11,14 @@ import { createSimpleEvent, SortSongEvent } from "../events";
 import { playbackManager } from "../data/playback_manager";
 import { colorManager } from "../data/color_manager";
 import { SETTINGS_ICON, SORT_ICON } from "../app_icons";
+import { debugLog } from "../debug";
 
 interface SortPageProps extends HTMLElement {
   appState: AppState;
 }
 
 let currentGesture = null;
+let lastCommit: number | null = null;
 
 function keyToDirection(key: string) {
   if (key === "ArrowLeft") {
@@ -36,6 +38,11 @@ function sortPage({ appState }: SortPageProps) {
   const [done, setDone] = useState(false);
 
   const commitFrontCard = (bucket: Direction) => {
+    if (lastCommit !== null && Date.now() - lastCommit < 150) {
+      debugLog("THROTTLING");
+      return;
+    }
+    lastCommit = Date.now();
     const song = appState.queue.pop();
     let playlist = null;
     if (bucket === "top") {

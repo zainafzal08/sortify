@@ -1787,6 +1787,7 @@ customElements.define("sort-card", SortCard);
 class PlaybackManager {
     constructor() {
         this.paused = false;
+        this.changeListeners = [];
         this.volumeInternal = 0.5;
     }
     get active() {
@@ -1801,34 +1802,57 @@ class PlaybackManager {
     get volume() {
         return this.volumeInternal;
     }
+    notifyListeners() {
+        let newState;
+        if (!this.active) {
+            newState = "missing";
+        }
+        else if (this.paused) {
+            newState = "paused";
+        }
+        else {
+            newState = "playing";
+        }
+        for (const listener of this.changeListeners) {
+            listener(newState);
+        }
+    }
     setTrack(song) {
         var _a;
         (_a = this.audioElement) === null || _a === void 0 ? void 0 : _a.pause();
         if (!song.preview_url) {
             this.audioElement = null;
         }
-        this.audioElement = new Audio(song.preview_url);
-        this.audioElement.volume = this.volume;
-        this.audioElement.loop = true;
-        if (!this.paused) {
-            this.audioElement.play();
+        else {
+            this.audioElement = new Audio(song.preview_url);
+            this.audioElement.volume = this.volume;
+            this.audioElement.loop = true;
+            if (!this.paused) {
+                this.audioElement.play();
+            }
         }
+        this.notifyListeners();
     }
     playTrack() {
         var _a;
         this.paused = false;
         (_a = this.audioElement) === null || _a === void 0 ? void 0 : _a.play();
+        this.notifyListeners();
     }
     pauseTrack() {
         var _a;
         this.paused = true;
         (_a = this.audioElement) === null || _a === void 0 ? void 0 : _a.pause();
+        this.notifyListeners();
+    }
+    addChangeListener(listener) {
+        this.changeListeners.push(listener);
     }
 }
 const playbackManager = new PlaybackManager();
 
 function sortControls({ appState }) {
-    const [paused, setPaused] = useState(false);
+    const [playbackState, setPlaybackState] = useState("playing");
     useConstructableStylesheets(this, [
         r$3 `
       :host {
@@ -1864,29 +1888,30 @@ function sortControls({ appState }) {
         if (!playbackManager.active) {
             return;
         }
-        if (paused) {
+        if (playbackState === "paused") {
             playbackManager.playTrack();
-            setPaused(false);
         }
         else {
             playbackManager.pauseTrack();
-            setPaused(true);
         }
     };
+    useEffect(() => {
+        playbackManager.addChangeListener((newState) => {
+            setPlaybackState(newState);
+        });
+    }, []);
     const sortEvent = (direction) => {
         this.dispatchEvent(createSortSongEvent(direction));
     };
     const leftPlaylist = spotifyInterface.playlistUIDToName(appState.sinkLeft);
     const upPlaylist = spotifyInterface.playlistUIDToName(appState.sinkUp);
     const rightPlaylist = spotifyInterface.playlistUIDToName(appState.sinkRight);
-    let playbackState;
     let playbackIcon;
-    if (!playbackManager.active) {
-        playbackState = "Missing";
+    if (!playbackManager.active || playbackState === "missing") {
         playbackIcon = ERROR_ICON;
     }
     else {
-        playbackState = paused ? "Play" : "Paused";
+        const paused = playbackState === "paused";
         playbackIcon = paused ? PLAY_ICON : PAUSE_ICON;
     }
     return $ `
@@ -5310,6 +5335,7 @@ const SettingsDialog = component(settingsDialog);
 customElements.define("settings-dialog", SettingsDialog);
 
 let currentGesture = null;
+let lastCommit = null;
 function keyToDirection(key) {
     if (key === "ArrowLeft") {
         return "left";
@@ -5330,6 +5356,11 @@ function keyToDirection(key) {
 function sortPage({ appState }) {
     const [done, setDone] = useState(false);
     const commitFrontCard = (bucket) => {
+        if (lastCommit !== null && Date.now() - lastCommit < 150) {
+            debugLog("THROTTLING");
+            return;
+        }
+        lastCommit = Date.now();
         const song = appState.queue.pop();
         let playlist = null;
         if (bucket === "top") {

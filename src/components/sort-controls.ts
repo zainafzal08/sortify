@@ -1,4 +1,4 @@
-import { component, useState } from "haunted";
+import { component, useEffect, useState } from "haunted";
 import { css, html, TemplateResult } from "lit";
 import {
   ARROW_LEFT_ICON,
@@ -10,7 +10,7 @@ import {
   SKIP_ICON,
 } from "../app_icons";
 import { playbackManager } from "../data/playback_manager";
-import { AppState, Direction } from "../data/shared_types";
+import { AppState, Direction, PlaybackState } from "../data/shared_types";
 import { spotifyInterface } from "../data/spotify";
 import { createSortSongEvent } from "../events";
 import { useConstructableStylesheets } from "../helpers";
@@ -20,7 +20,7 @@ interface SortControlsProps extends HTMLElement {
 }
 
 function sortControls({ appState }: SortControlsProps) {
-  const [paused, setPaused] = useState(false);
+  const [playbackState, setPlaybackState] = useState<PlaybackState>("playing");
 
   useConstructableStylesheets(this, [
     css`
@@ -58,14 +58,18 @@ function sortControls({ appState }: SortControlsProps) {
     if (!playbackManager.active) {
       return;
     }
-    if (paused) {
+    if (playbackState === "paused") {
       playbackManager.playTrack();
-      setPaused(false);
     } else {
       playbackManager.pauseTrack();
-      setPaused(true);
     }
   };
+
+  useEffect(() => {
+    playbackManager.addChangeListener((newState: PlaybackState) => {
+      setPlaybackState(newState);
+    });
+  }, []);
 
   const sortEvent = (direction: Direction) => {
     this.dispatchEvent(createSortSongEvent(direction));
@@ -74,13 +78,14 @@ function sortControls({ appState }: SortControlsProps) {
   const leftPlaylist = spotifyInterface.playlistUIDToName(appState.sinkLeft);
   const upPlaylist = spotifyInterface.playlistUIDToName(appState.sinkUp);
   const rightPlaylist = spotifyInterface.playlistUIDToName(appState.sinkRight);
-  let playbackState: string;
   let playbackIcon: TemplateResult;
-  if (!playbackManager.active) {
-    playbackState = "Missing";
+  let playbackMessage: string;
+  if (!playbackManager.active || playbackState === "missing") {
+    playbackMessage = "Missing";
     playbackIcon = ERROR_ICON;
   } else {
-    playbackState = paused ? "Play" : "Paused";
+    const paused = playbackState === "paused";
+    playbackMessage = paused ? "Play" : "Pause";
     playbackIcon = paused ? PLAY_ICON : PAUSE_ICON;
   }
   return html`

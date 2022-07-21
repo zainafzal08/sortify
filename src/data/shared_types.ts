@@ -44,3 +44,5 @@ export type ConnectionState =
   | "pending-data"
   | "connected"
   | "unconnected";
+
+export type PlaybackState = "playing" | "paused" | "missing";
