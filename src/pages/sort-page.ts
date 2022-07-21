@@ -4,13 +4,13 @@ import { AppState, Direction } from "../data/shared_types";
 import { useConstructableStylesheets } from "../helpers";
 import "../components/sort-card";
 import "../components/sort-controls";
-
+import "../components/settings-dialog";
 import { CARD_SIZE } from "../components/sort-card";
 import { spotifyInterface } from "../data/spotify";
 import { createSimpleEvent, SortSongEvent } from "../events";
 import { playbackManager } from "../data/playback_manager";
 import { colorManager } from "../data/color_manager";
-import { SORT_ICON } from "../app_icons";
+import { SETTINGS_ICON, SORT_ICON } from "../app_icons";
 
 interface SortPageProps extends HTMLElement {
   appState: AppState;
@@ -260,8 +260,20 @@ function sortPage({ appState }: SortPageProps) {
         align-items: center;
         justify-content: center;
       }
+      #settings-button {
+        position: fixed;
+        top: 8px;
+        right: 8px;
+      }
     `,
   ]);
+
+  const openSettings = () => {
+    const dialog = this.shadowRoot.querySelector(
+      "settings-dialog"
+    ) as HTMLElement;
+    dialog.toggleAttribute("shown", true);
+  };
 
   return html`
     <div class="card-container">${frontCard} ${backCard}</div>
@@ -270,6 +282,13 @@ function sortPage({ appState }: SortPageProps) {
       .appState=${appState}
     >
     </sort-controls>
+    <app-button
+      id="settings-button"
+      .icon=${SETTINGS_ICON}
+      @click=${openSettings}
+      icon-only
+    ></app-button>
+    <settings-dialog></settings-dialog>
   `;
 }
 

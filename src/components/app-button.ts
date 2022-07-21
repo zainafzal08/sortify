@@ -35,6 +35,13 @@ function appButton({ icon }: AppButtonProps) {
         transition: all 200ms ease-in-out;
         width: inherit;
       }
+      :host([small]) button {
+        font-size: 0.7rem;
+        padding: 0.3rem 0.5rem 0.3rem 0.3rem;
+      }
+      :host([icon-only]) button {
+        padding: 0.5rem;
+      }
       :host([disabled]) button {
         opacity: 0.5;
       }
@@ -51,6 +58,14 @@ function appButton({ icon }: AppButtonProps) {
         fill: rgb(43, 50, 65);
         margin-right: 0.5rem;
       }
+      :host([icon-only]) svg {
+        min-width: 18px;
+        width: 18px;
+        margin-right: 0rem;
+      }
+      :host([small]) svg {
+        margin-right: 0.2rem;
+      }
       :host([secondary]) button svg {
         fill: white;
       }
@@ -59,6 +74,9 @@ function appButton({ icon }: AppButtonProps) {
         white-space: nowrap;
         position: relative;
         max-width: 100%;
+      }
+      :host([icon-only]) button .scrolling {
+        display: none;
       }
       button .scrolling div {
         padding-left: 4px;

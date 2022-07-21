@@ -3,9 +3,21 @@ import { Song } from "./shared_types";
 class PlaybackManager {
   private audioElement: HTMLAudioElement | null;
   private paused = false;
+  volumeInternal = 0.5;
 
   get active() {
     return this.audioElement !== null;
+  }
+
+  set volume(v: number) {
+    if (this.audioElement) {
+      this.audioElement.volume = v;
+    }
+    this.volumeInternal = v;
+  }
+
+  get volume() {
+    return this.volumeInternal;
   }
 
   setTrack(song: Song) {
@@ -14,7 +26,7 @@ class PlaybackManager {
       this.audioElement = null;
     }
     this.audioElement = new Audio(song.preview_url);
-    this.audioElement.volume = 0.5;
+    this.audioElement.volume = this.volume;
     this.audioElement.loop = true;
     if (!this.paused) {
       this.audioElement.play();
