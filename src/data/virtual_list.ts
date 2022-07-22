@@ -8,16 +8,23 @@ import { debugLog } from "../debug";
 export class VirtualList<T> {
   private cache: T[] = [];
   private awaitingResponse = false;
-  private requestOffset;
+  private requestOffset = 0;
   private remoteEmpty = false;
+
+  count = 0;
 
   constructor(
     private readonly minCacheSize: number,
     private readonly getMore: (offset: number) => Promise<T[]>,
-    initial: T[]
+    initial: T[] | null
   ) {
-    this.requestOffset = initial.length;
-    this.cache.push(...initial);
+    if (initial === null) {
+      this.remoteEmpty = true;
+    } else {
+      this.requestOffset = initial.length;
+      this.cache.push(...initial);
+      this.count += initial.length;
+    }
   }
 
   private async requestMore() {
@@ -41,6 +48,7 @@ export class VirtualList<T> {
       debugLog(`... ${additionalItems.length} items recieved.`);
       this.requestOffset += additionalItems.length;
       this.cache.push(...additionalItems);
+      this.count += additionalItems.length;
     }
     this.awaitingResponse = false;
   }

@@ -678,9 +678,17 @@ class VirtualList {
         this.getMore = getMore;
         this.cache = [];
         this.awaitingResponse = false;
+        this.requestOffset = 0;
         this.remoteEmpty = false;
-        this.requestOffset = initial.length;
-        this.cache.push(...initial);
+        this.count = 0;
+        if (initial === null) {
+            this.remoteEmpty = true;
+        }
+        else {
+            this.requestOffset = initial.length;
+            this.cache.push(...initial);
+            this.count += initial.length;
+        }
     }
     requestMore() {
         return __awaiter(this, void 0, void 0, function* () {
@@ -704,6 +712,7 @@ class VirtualList {
                 debugLog(`... ${additionalItems.length} items recieved.`);
                 this.requestOffset += additionalItems.length;
                 this.cache.push(...additionalItems);
+                this.count += additionalItems.length;
             }
             this.awaitingResponse = false;
         });
@@ -756,6 +765,7 @@ class SpotifyInterface {
         this.userId = "";
         this.pending = false;
         this.listeners = [];
+        this.sendQueue = [];
         this.init();
     }
     init() {
@@ -775,6 +785,8 @@ class SpotifyInterface {
                     listener();
                 }
             }
+            // Batch spotify requests every 2 seconds.
+            setInterval(() => void this.processSendQueue(), 2000);
         });
     }
     tokenValid() {
@@ -818,6 +830,48 @@ class SpotifyInterface {
                 uri: item.uri,
                 writable: this.userHasWriteAccess(item),
             }));
+        });
+    }
+    putRequest(endpoint, body) {
+        return __awaiter(this, void 0, void 0, function* () {
+            // TODO: deduplicate the code here and in post request.
+            if (!this.tokenInfo) {
+                throw new Error("Attempted to make web request without tokens available.");
+            }
+            if (!(yield this.tokenValid())) {
+                throw new Error("Token is invalid now.");
+            }
+            const url = new URL(`https://api.spotify.com/v1/${endpoint}`);
+            const headers = {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${this.tokenInfo.accessToken}`,
+            };
+            yield fetch(url.href, {
+                method: "PUT",
+                headers,
+                body: JSON.stringify(body),
+            });
+        });
+    }
+    postRequest(endpoint, body) {
+        return __awaiter(this, void 0, void 0, function* () {
+            if (!this.tokenInfo) {
+                throw new Error("Attempted to make web request without tokens available.");
+            }
+            if (!(yield this.tokenValid())) {
+                throw new Error("Token is invalid now.");
+            }
+            const url = new URL(`https://api.spotify.com/v1/${endpoint}`);
+            const headers = {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${this.tokenInfo.accessToken}`,
+            };
+            const r = yield fetch(url.href, {
+                method: "POST",
+                headers,
+                body: JSON.stringify(body),
+            });
+            return r.json();
         });
     }
     formRequest(href, params) {
@@ -989,14 +1043,49 @@ class SpotifyInterface {
         });
     }
     playlistUIDToName(playlistURI) {
+        if (playlistURI === "__LIKED__") {
+            return "Liked Songs";
+        }
         return this.playlists.find((s) => s.uri === playlistURI).name;
     }
     addSongToPlaylist(songURI, playlistURI) {
-        if (playlistURI === "__LIKED__") {
-            // TODO.
-            return;
-        }
-        // TODO.
+        this.sendQueue.push({ songURI, playlistURI });
+    }
+    processSendQueue() {
+        return __awaiter(this, void 0, void 0, function* () {
+            const playlistMap = {};
+            let count = 0;
+            // Although the add items to playlist api lets you do up to 100, the add
+            // items to users liked list is limited to 50, so we just limit each cycle
+            // to 50 items.
+            while (count < 50 && this.sendQueue.length > 0) {
+                const { playlistURI, songURI } = this.sendQueue.shift();
+                count++;
+                if (playlistMap[playlistURI] === undefined) {
+                    playlistMap[playlistURI] = [];
+                }
+                playlistMap[playlistURI].push(songURI);
+            }
+            if (count > 0) {
+                debugLog(`Commiting ${count} edits to spotify`);
+            }
+            const requests = [];
+            for (const [key, value] of Object.entries(playlistMap)) {
+                let r;
+                if (key === "__LIKED__") {
+                    r = this.putRequest(`me/tracks`, value.map((uri) => uri.split(":")[2]));
+                }
+                else {
+                    const playlistId = key.split(":")[2];
+                    r = this.postRequest(`playlists/${playlistId}/tracks`, {
+                        uris: value,
+                    });
+                }
+                requests.push(r);
+            }
+            this.sendQueue = [];
+            yield Promise.all(requests);
+        });
     }
 }
 const spotifyInterface = new SpotifyInterface();
@@ -5512,26 +5601,11 @@ function sortPage({ appState }) {
       @pointerdown=${(e) => onCardPick(e)}
     ></sort-card>`;
     }
-    if (!head && !next) {
-        return $ `
-      <div class="done-message">
-        <h1 class="title">All Done!</h1>
-        <p class="subtitle">
-          Mighty fast fingers you have there, you've sorted all the songs in
-          this playlist! Wanna go again?
-        </p>
-        <app-button
-          .icon=${SORT_ICON}
-          @click=${() => this.dispatchEvent(createSimpleEvent("app-reset"))}
-        >
-          Restart
-        </app-button>
-      </div>
-    `;
-    }
     useEffect(() => {
-        colorManager.updateColorsFromAlbum(head.album.images[0]);
-        playbackManager.setTrack(head);
+        if (head) {
+            colorManager.updateColorsFromAlbum(head.album.images[0]);
+            playbackManager.setTrack(head);
+        }
         const onKeydown = (e) => programaticSwipe(keyToDirection(e.key));
         this.addEventListener("pointermove", onCardDrag);
         this.addEventListener("pointerup", onCardDrop);
@@ -5578,6 +5652,9 @@ function sortPage({ appState }) {
         align-items: center;
         justify-content: center;
       }
+      .done-message .title {
+        padding-bottom: 0;
+      }
       #settings-button {
         position: fixed;
         top: 8px;
@@ -5589,6 +5666,36 @@ function sortPage({ appState }) {
         const dialog = this.shadowRoot.querySelector("settings-dialog");
         dialog.toggleAttribute("shown", true);
     };
+    if (!head && !next) {
+        let title, subtitle;
+        const totalSorted = appState.queue.count;
+        if (totalSorted === 0) {
+            title = "That was fast";
+            subtitle = `
+        Looks like your source playlist had no songs in it. Wanna try again?
+      `;
+        }
+        else {
+            const playlist = spotifyInterface.playlistUIDToName(appState.source);
+            title = "All Done!";
+            subtitle = `
+        Nice. You sorted all ${totalSorted} songs from '${playlist}'. Wanna go
+        again?
+      `;
+        }
+        return $ `
+      <div class="done-message">
+        <h1 class="title">${title}</h1>
+        <p class="subtitle">${subtitle}</p>
+        <app-button
+          .icon=${SORT_ICON}
+          @click=${() => this.dispatchEvent(createSimpleEvent("app-reset"))}
+        >
+          Restart
+        </app-button>
+      </div>
+    `;
+    }
     return $ `
     <div class="card-container">${frontCard} ${backCard}</div>
     <sort-controls

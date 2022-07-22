@@ -5,6 +5,7 @@ import { useConstructableStylesheets } from "../helpers";
 import "../components/sort-card";
 import "../components/sort-controls";
 import "../components/settings-dialog";
+import "../components/app-button";
 import { CARD_SIZE } from "../components/sort-card";
 import { spotifyInterface } from "../data/spotify";
 import { createSimpleEvent, SortSongEvent } from "../events";
@@ -198,27 +199,11 @@ function sortPage({ appState }: SortPageProps) {
     ></sort-card>`;
   }
 
-  if (!head && !next) {
-    return html`
-      <div class="done-message">
-        <h1 class="title">All Done!</h1>
-        <p class="subtitle">
-          Mighty fast fingers you have there, you've sorted all the songs in
-          this playlist! Wanna go again?
-        </p>
-        <app-button
-          .icon=${SORT_ICON}
-          @click=${() => this.dispatchEvent(createSimpleEvent("app-reset"))}
-        >
-          Restart
-        </app-button>
-      </div>
-    `;
-  }
-
   useEffect(() => {
-    colorManager.updateColorsFromAlbum(head.album.images[0]);
-    playbackManager.setTrack(head);
+    if (head) {
+      colorManager.updateColorsFromAlbum(head.album.images[0]);
+      playbackManager.setTrack(head);
+    }
     const onKeydown = (e: KeyboardEvent) =>
       programaticSwipe(keyToDirection(e.key));
     this.addEventListener("pointermove", onCardDrag);
@@ -267,6 +252,9 @@ function sortPage({ appState }: SortPageProps) {
         align-items: center;
         justify-content: center;
       }
+      .done-message .title {
+        padding-bottom: 0;
+      }
       #settings-button {
         position: fixed;
         top: 8px;
@@ -281,6 +269,36 @@ function sortPage({ appState }: SortPageProps) {
     ) as HTMLElement;
     dialog.toggleAttribute("shown", true);
   };
+
+  if (!head && !next) {
+    let title, subtitle;
+    const totalSorted = appState.queue.count;
+    if (totalSorted === 0) {
+      title = "That was fast";
+      subtitle = `
+        Looks like your source playlist had no songs in it. Wanna try again?
+      `;
+    } else {
+      const playlist = spotifyInterface.playlistUIDToName(appState.source);
+      title = "All Done!";
+      subtitle = `
+        Nice. You sorted all ${totalSorted} songs from '${playlist}'. Wanna go
+        again?
+      `;
+    }
+    return html`
+      <div class="done-message">
+        <h1 class="title">${title}</h1>
+        <p class="subtitle">${subtitle}</p>
+        <app-button
+          .icon=${SORT_ICON}
+          @click=${() => this.dispatchEvent(createSimpleEvent("app-reset"))}
+        >
+          Restart
+        </app-button>
+      </div>
+    `;
+  }
 
   return html`
     <div class="card-container">${frontCard} ${backCard}</div>

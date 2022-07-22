@@ -1,4 +1,5 @@
 import { v4 as uuid } from "uuid";
+import { debugLog } from "../debug";
 import { ConnectionState, Playlist, Song } from "./shared_types";
 import { VirtualList } from "./virtual_list";
 
@@ -31,6 +32,7 @@ export class SpotifyInterface {
   private userId: string = "";
   private pending = false;
   private listeners: Array<() => void> = [];
+  private sendQueue: Array<{ songURI: string; playlistURI: string }> = [];
 
   constructor() {
     this.init();
@@ -52,6 +54,8 @@ export class SpotifyInterface {
         listener();
       }
     }
+    // Batch spotify requests every 2 seconds.
+    setInterval(() => void this.processSendQueue(), 2000);
   }
 
   private async tokenValid() {
@@ -100,6 +104,50 @@ export class SpotifyInterface {
     }));
   }
 
+  private async putRequest(endpoint: string, body: Object) {
+    // TODO: deduplicate the code here and in post request.
+    if (!this.tokenInfo) {
+      throw new Error(
+        "Attempted to make web request without tokens available."
+      );
+    }
+    if (!(await this.tokenValid())) {
+      throw new Error("Token is invalid now.");
+    }
+    const url = new URL(`https://api.spotify.com/v1/${endpoint}`);
+    const headers = {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${this.tokenInfo.accessToken}`,
+    };
+    const r = await fetch(url.href, {
+      method: "PUT",
+      headers,
+      body: JSON.stringify(body),
+    });
+  }
+
+  private async postRequest(endpoint: string, body: Object) {
+    if (!this.tokenInfo) {
+      throw new Error(
+        "Attempted to make web request without tokens available."
+      );
+    }
+    if (!(await this.tokenValid())) {
+      throw new Error("Token is invalid now.");
+    }
+    const url = new URL(`https://api.spotify.com/v1/${endpoint}`);
+    const headers = {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${this.tokenInfo.accessToken}`,
+    };
+    const r = await fetch(url.href, {
+      method: "POST",
+      headers,
+      body: JSON.stringify(body),
+    });
+    return r.json();
+  }
+
   private async formRequest(href: string, params: Record<string, string>) {
     const url = new URL(href);
     let formBody = [];
@@ -138,11 +186,13 @@ export class SpotifyInterface {
     for (const k of Object.keys(queryParams)) {
       url.searchParams.set(k, queryParams[k]);
     }
+
     const r = await fetch(url.href, {
       headers: {
         Authorization: `Bearer ${this.tokenInfo.accessToken}`,
       },
     });
+
     return r.json();
   }
 
@@ -286,15 +336,51 @@ export class SpotifyInterface {
   }
 
   playlistUIDToName(playlistURI: string) {
+    if (playlistURI === "__LIKED__") {
+      return "Liked Songs";
+    }
     return this.playlists.find((s) => s.uri === playlistURI).name;
   }
 
   addSongToPlaylist(songURI: string, playlistURI: string) {
-    if (playlistURI === "__LIKED__") {
-      // TODO.
-      return;
+    this.sendQueue.push({ songURI, playlistURI });
+  }
+
+  async processSendQueue() {
+    const playlistMap: Record<string, string[]> = {};
+    let count = 0;
+    // Although the add items to playlist api lets you do up to 100, the add
+    // items to users liked list is limited to 50, so we just limit each cycle
+    // to 50 items.
+    while (count < 50 && this.sendQueue.length > 0) {
+      const { playlistURI, songURI } = this.sendQueue.shift();
+      count++;
+      if (playlistMap[playlistURI] === undefined) {
+        playlistMap[playlistURI] = [];
+      }
+      playlistMap[playlistURI].push(songURI);
     }
-    // TODO.
+    if (count > 0) {
+      debugLog(`Commiting ${count} edits to spotify`);
+    }
+    const requests: Array<Promise<any>> = [];
+    for (const [key, value] of Object.entries(playlistMap)) {
+      let r: Promise<any>;
+      if (key === "__LIKED__") {
+        r = this.putRequest(
+          `me/tracks`,
+          value.map((uri: string) => uri.split(":")[2])
+        );
+      } else {
+        const playlistId = key.split(":")[2];
+        r = this.postRequest(`playlists/${playlistId}/tracks`, {
+          uris: value,
+        });
+      }
+      requests.push(r);
+    }
+    this.sendQueue = [];
+    await Promise.all(requests);
   }
 }
 
