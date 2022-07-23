@@ -40,6 +40,7 @@ export interface Song {
 export type Direction = "top" | "left" | "bottom" | "right";
 
 export type ConnectionState =
+  | "unrecoverable"
   | "pending-login"
   | "pending-data"
   | "connected"

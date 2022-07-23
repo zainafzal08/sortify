@@ -34,6 +34,8 @@ export class SpotifyInterface {
   private listeners: Array<() => void> = [];
   private sendQueue: Array<{ songURI: string; playlistURI: string }> = [];
 
+  unrecoverableError: Error | null = null;
+
   constructor() {
     this.init();
   }
@@ -50,9 +52,7 @@ export class SpotifyInterface {
         await this.fetchPlaylists();
       }
       this.pending = false;
-      for (const listener of this.listeners) {
-        listener();
-      }
+      this.notifyStateChangeListeners();
     }
     // Batch spotify requests every 2 seconds.
     setInterval(() => void this.processSendQueue(), 2000);
@@ -107,44 +107,59 @@ export class SpotifyInterface {
   private async putRequest(endpoint: string, body: Object) {
     // TODO: deduplicate the code here and in post request.
     if (!this.tokenInfo) {
-      throw new Error(
-        "Attempted to make web request without tokens available."
+      this.notifyBreakage(
+        new Error("Attempted to make web request without tokens available.")
       );
+      return;
     }
     if (!(await this.tokenValid())) {
-      throw new Error("Token is invalid now.");
+      this.notifyBreakage(new Error("Token is invalid now."));
+      return;
     }
     const url = new URL(`https://api.spotify.com/v1/${endpoint}`);
     const headers = {
       "Content-Type": "application/json",
       Authorization: `Bearer ${this.tokenInfo.accessToken}`,
     };
-    const r = await fetch(url.href, {
-      method: "PUT",
-      headers,
-      body: JSON.stringify(body),
-    });
+    try {
+      await fetch(url.href, {
+        method: "PUT",
+        headers,
+        body: JSON.stringify(body),
+      });
+    } catch (err: unknown) {
+      this.notifyBreakage(err as Error);
+      return;
+    }
   }
 
   private async postRequest(endpoint: string, body: Object) {
     if (!this.tokenInfo) {
-      throw new Error(
-        "Attempted to make web request without tokens available."
+      this.notifyBreakage(
+        new Error("Attempted to make web request without tokens available.")
       );
+      return null;
     }
     if (!(await this.tokenValid())) {
-      throw new Error("Token is invalid now.");
+      this.notifyBreakage(new Error("Token is invalid now."));
+      return null;
     }
     const url = new URL(`https://api.spotify.com/v1/${endpoint}`);
     const headers = {
       "Content-Type": "application/json",
       Authorization: `Bearer ${this.tokenInfo.accessToken}`,
     };
-    const r = await fetch(url.href, {
-      method: "POST",
-      headers,
-      body: JSON.stringify(body),
-    });
+    let r: Response;
+    try {
+      r = await fetch(url.href, {
+        method: "POST",
+        headers,
+        body: JSON.stringify(body),
+      });
+    } catch (err: unknown) {
+      this.notifyBreakage(err as Error);
+      return null;
+    }
     return r.json();
   }
 
@@ -162,11 +177,17 @@ export class SpotifyInterface {
     if (this.tokenInfo) {
       headers["Authorization"] = `Bearer ${this.tokenInfo.accessToken}`;
     }
-    const r = await fetch(url.href, {
-      method: "POST",
-      headers,
-      body: formBody.join("&"),
-    });
+    let r: Response;
+    try {
+      r = await fetch(url.href, {
+        method: "POST",
+        headers,
+        body: formBody.join("&"),
+      });
+    } catch (err: unknown) {
+      this.notifyBreakage(err as Error);
+      return null;
+    }
     return r.json();
   }
 
@@ -175,25 +196,44 @@ export class SpotifyInterface {
     queryParams: Record<string, string> = {}
   ) {
     if (!this.tokenInfo) {
-      throw new Error(
-        "Attempted to make web request without tokens available."
+      this.notifyBreakage(
+        new Error("Attempted to make web request without tokens available.")
       );
+      return null;
     }
     if (!(await this.tokenValid())) {
-      throw new Error("Token is invalid now.");
+      this.notifyBreakage(new Error("Token is invalid now."));
+      return null;
     }
     const url = new URL(`https://api.spotify.com/v1/${endpoint}`);
     for (const k of Object.keys(queryParams)) {
       url.searchParams.set(k, queryParams[k]);
     }
 
-    const r = await fetch(url.href, {
-      headers: {
-        Authorization: `Bearer ${this.tokenInfo.accessToken}`,
-      },
-    });
+    let r: Response;
+    try {
+      r = await fetch(url.href, {
+        headers: {
+          Authorization: `Bearer ${this.tokenInfo.accessToken}`,
+        },
+      });
+    } catch (err: unknown) {
+      this.notifyBreakage(err as Error);
+      return null;
+    }
 
     return r.json();
+  }
+
+  private notifyStateChangeListeners() {
+    for (const listener of this.listeners) {
+      listener();
+    }
+  }
+
+  private notifyBreakage(err: Error) {
+    this.unrecoverableError = err;
+    this.notifyStateChangeListeners();
   }
 
   async startLogin() {
@@ -222,12 +262,11 @@ export class SpotifyInterface {
 
   connectionState(): ConnectionState {
     let pendingLogin;
-    try {
-      this.getPendingLogin();
-      pendingLogin = true;
-    } catch (e) {
-      pendingLogin = false;
+    if (this.unrecoverableError !== null) {
+      return "unrecoverable";
     }
+
+    pendingLogin = this.getPendingLogin() !== null;
     if (pendingLogin) {
       return "pending-login";
     } else if (this.pending) {
@@ -241,18 +280,26 @@ export class SpotifyInterface {
   private getPendingLogin(): { code_verifier: string; state: string } {
     const pendingLogin = localStorage.getItem("login-in-progress");
     if (!pendingLogin) {
-      throw new Error("Attemped to complete a non pending login.");
+      return null;
     }
     return JSON.parse(pendingLogin);
   }
 
   async completeLogin(params: URLSearchParams) {
     const pendingLogin = this.getPendingLogin();
+    if (pendingLogin === null) {
+      this.notifyBreakage(
+        new Error("Attempted to complete login with no pending login")
+      );
+      return;
+    }
     const { code_verifier, state } = pendingLogin;
     const code = params.get("code");
     if (state !== params.get("state")) {
-      throw new Error(
-        "Returned state does not match last login request. Aborting due to CSRF Risk."
+      this.notifyBreakage(
+        new Error(
+          "Returned state does not match last login request. Aborting due to CSRF Risk."
+        )
       );
     }
     const res = await this.formRequest(
@@ -277,11 +324,8 @@ export class SpotifyInterface {
     localStorage.setItem("token_info", JSON.stringify(this.tokenInfo));
     localStorage.setItem("user_id", this.userId);
 
-    // This will notify listeners.
     await this.fetchPlaylists();
-    for (const listener of this.listeners) {
-      listener();
-    }
+    this.notifyStateChangeListeners();
   }
 
   getAllPlaylists(): Playlist[] {

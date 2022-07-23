@@ -6,7 +6,8 @@ import "./pages/loading-page";
 import "./pages/connect-page";
 import "./pages/setup-page";
 import "./pages/sort-page";
-import { PlaylistSelections, SimpleEvent, StartSortingEvent } from "./events";
+import "./pages/error-page";
+import { PlaylistSelections, StartSortingEvent } from "./events";
 import { AppState, ConnectionState } from "./data/shared_types";
 import { colorManager } from "./data/color_manager";
 
@@ -66,9 +67,6 @@ function appController() {
   const [connectionState, setConnectionState] = useState<ConnectionState>(
     spotifyInterface.connectionState()
   );
-  spotifyInterface.onStateChange(() => {
-    setConnectionState(spotifyInterface.connectionState());
-  });
 
   const startSorting = async (selections: PlaylistSelections) => {
     setConnectionState("pending-data");
@@ -106,11 +104,16 @@ function appController() {
     colorManager.resetToDefault();
   };
   let page: TemplateResult;
+
   if (
     connectionState === "pending-data" ||
     connectionState === "pending-login"
   ) {
     page = html`<loading-page></loading-page> `;
+  } else if (connectionState === "unrecoverable") {
+    page = html`<error-page
+      .error=${spotifyInterface.unrecoverableError}
+    ></error-page>`;
   } else if (connectionState === "unconnected") {
     page = html`<connect-page></connect-page> `;
   } else if (appState === null) {
@@ -120,6 +123,9 @@ function appController() {
   }
 
   useEffect(() => {
+    spotifyInterface.onStateChange(() => {
+      setConnectionState(spotifyInterface.connectionState());
+    });
     colorManager.init();
     randomizeAnimation();
     maybeCompleteLogin();
