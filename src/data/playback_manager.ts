@@ -1,11 +1,11 @@
 import { Song, PlaybackState } from "./shared_types";
 
 class PlaybackManager {
-  private audioElement: HTMLAudioElement | null;
-  private paused = false;
+  private audioElement: HTMLAudioElement | null = null;
   private changeListeners: Array<(newState: PlaybackState) => void> = [];
+  private volumeInternal = 0.5;
 
-  volumeInternal = 0.5;
+  paused = false;
 
   get active() {
     return this.audioElement !== null;

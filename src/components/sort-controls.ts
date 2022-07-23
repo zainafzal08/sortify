@@ -69,6 +69,13 @@ function sortControls({ appState }: SortControlsProps) {
     playbackManager.addChangeListener((newState: PlaybackState) => {
       setPlaybackState(newState);
     });
+    let currState: PlaybackState = "playing";
+    if (!playbackManager.active) {
+      currState = "missing";
+    } else if (playbackManager.paused) {
+      currState = "paused";
+    }
+    setPlaybackState(currState);
   }, []);
 
   const sortEvent = (direction: Direction) => {
@@ -80,7 +87,8 @@ function sortControls({ appState }: SortControlsProps) {
   const rightPlaylist = spotifyInterface.playlistUIDToName(appState.sinkRight);
   let playbackIcon: TemplateResult;
   let playbackMessage: string;
-  if (!playbackManager.active || playbackState === "missing") {
+
+  if (playbackState === "missing") {
     playbackMessage = "Missing";
     playbackIcon = ERROR_ICON;
   } else {
@@ -109,7 +117,7 @@ function sortControls({ appState }: SortControlsProps) {
         ${upPlaylist}
       </app-button>
       <app-button @click=${togglePlayback} .icon=${playbackIcon}>
-        ${playbackState}
+        ${playbackMessage}
       </app-button>
       <app-button
         auto-scroll

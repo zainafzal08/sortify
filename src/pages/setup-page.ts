@@ -77,18 +77,31 @@ function setupPage() {
         border-style: solid;
         border-radius: 8px;
         margin-bottom: 1.5rem;
+        display: flex;
+        align-items: center;
+        position: relative;
       }
       fieldset.row {
         display: flex;
       }
       fieldset select {
         width: 100%;
+        -webkit-appearance: none;
         background: none;
         color: white;
         border: none;
         outline: none;
         font-size: 0.9rem;
         font-weight: 600;
+      }
+      fieldset .arrow {
+        --size: 24px;
+        fill: white;
+        width: var(--size);
+        height: var(--size);
+        position: absolute;
+        right: 8px;
+        pointer-events: none;
       }
       fieldset legend {
         color: rgba(255, 255, 255, 0.7);
@@ -119,6 +132,9 @@ function setupPage() {
           (pl) => html` <option value=${pl.uri}>${pl.name}</option> `
         )}
       </select>
+      <svg class="arrow" viewBox="0 0 24 24">
+        <path d="M7.41,8.58L12,13.17L16.59,8.58L18,10L12,16L6,10L7.41,8.58Z" />
+      </svg>
     </fieldset>
     <fieldset>
       <legend>Pick where songs go when you swipe them UP</legend>
@@ -127,6 +143,9 @@ function setupPage() {
           (pl) => html` <option value=${pl.uri}>${pl.name}</option> `
         )}
       </select>
+      <svg class="arrow" viewBox="0 0 24 24">
+        <path d="M7.41,8.58L12,13.17L16.59,8.58L18,10L12,16L6,10L7.41,8.58Z" />
+      </svg>
     </fieldset>
     <fieldset>
       <legend>Pick where songs go when you swipe them LEFT</legend>
@@ -135,6 +154,9 @@ function setupPage() {
           (pl) => html` <option value=${pl.uri}>${pl.name}</option> `
         )}
       </select>
+      <svg class="arrow" viewBox="0 0 24 24">
+        <path d="M7.41,8.58L12,13.17L16.59,8.58L18,10L12,16L6,10L7.41,8.58Z" />
+      </svg>
     </fieldset>
     <fieldset>
       <legend>Pick where songs go when you swipe them RIGHT</legend>
@@ -143,6 +165,9 @@ function setupPage() {
           (pl) => html` <option value=${pl.uri}>${pl.name}</option> `
         )}
       </select>
+      <svg class="arrow" viewBox="0 0 24 24">
+        <path d="M7.41,8.58L12,13.17L16.59,8.58L18,10L12,16L6,10L7.41,8.58Z" />
+      </svg>
     </fieldset>
     <app-button @click=${onStartSort} .icon=${SORT_ICON}>
       Start Sorting</app-button

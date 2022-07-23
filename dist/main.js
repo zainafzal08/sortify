@@ -1788,18 +1788,31 @@ function setupPage() {
         border-style: solid;
         border-radius: 8px;
         margin-bottom: 1.5rem;
+        display: flex;
+        align-items: center;
+        position: relative;
       }
       fieldset.row {
         display: flex;
       }
       fieldset select {
         width: 100%;
+        -webkit-appearance: none;
         background: none;
         color: white;
         border: none;
         outline: none;
         font-size: 0.9rem;
         font-weight: 600;
+      }
+      fieldset .arrow {
+        --size: 24px;
+        fill: white;
+        width: var(--size);
+        height: var(--size);
+        position: absolute;
+        right: 8px;
+        pointer-events: none;
       }
       fieldset legend {
         color: rgba(255, 255, 255, 0.7);
@@ -1827,24 +1840,36 @@ function setupPage() {
       <select name="source" id="source">
         ${playlists.map((pl) => $ ` <option value=${pl.uri}>${pl.name}</option> `)}
       </select>
+      <svg class="arrow" viewBox="0 0 24 24">
+        <path d="M7.41,8.58L12,13.17L16.59,8.58L18,10L12,16L6,10L7.41,8.58Z" />
+      </svg>
     </fieldset>
     <fieldset>
       <legend>Pick where songs go when you swipe them UP</legend>
       <select name="sink-up" id="sink-up">
         ${writablePlaylists.map((pl) => $ ` <option value=${pl.uri}>${pl.name}</option> `)}
       </select>
+      <svg class="arrow" viewBox="0 0 24 24">
+        <path d="M7.41,8.58L12,13.17L16.59,8.58L18,10L12,16L6,10L7.41,8.58Z" />
+      </svg>
     </fieldset>
     <fieldset>
       <legend>Pick where songs go when you swipe them LEFT</legend>
       <select name="sink-left" id="sink-left">
         ${writablePlaylists.map((pl) => $ ` <option value=${pl.uri}>${pl.name}</option> `)}
       </select>
+      <svg class="arrow" viewBox="0 0 24 24">
+        <path d="M7.41,8.58L12,13.17L16.59,8.58L18,10L12,16L6,10L7.41,8.58Z" />
+      </svg>
     </fieldset>
     <fieldset>
       <legend>Pick where songs go when you swipe them RIGHT</legend>
       <select name="sink-right" id="sink-right">
         ${writablePlaylists.map((pl) => $ ` <option value=${pl.uri}>${pl.name}</option> `)}
       </select>
+      <svg class="arrow" viewBox="0 0 24 24">
+        <path d="M7.41,8.58L12,13.17L16.59,8.58L18,10L12,16L6,10L7.41,8.58Z" />
+      </svg>
     </fieldset>
     <app-button @click=${onStartSort} .icon=${SORT_ICON}>
       Start Sorting</app-button
@@ -1921,9 +1946,10 @@ customElements.define("sort-card", SortCard);
 
 class PlaybackManager {
     constructor() {
-        this.paused = false;
+        this.audioElement = null;
         this.changeListeners = [];
         this.volumeInternal = 0.5;
+        this.paused = false;
     }
     get active() {
         return this.audioElement !== null;
@@ -2034,6 +2060,14 @@ function sortControls({ appState }) {
         playbackManager.addChangeListener((newState) => {
             setPlaybackState(newState);
         });
+        let currState = "playing";
+        if (!playbackManager.active) {
+            currState = "missing";
+        }
+        else if (playbackManager.paused) {
+            currState = "paused";
+        }
+        setPlaybackState(currState);
     }, []);
     const sortEvent = (direction) => {
         this.dispatchEvent(createSortSongEvent(direction));
@@ -2042,11 +2076,14 @@ function sortControls({ appState }) {
     const upPlaylist = spotifyInterface.playlistUIDToName(appState.sinkUp);
     const rightPlaylist = spotifyInterface.playlistUIDToName(appState.sinkRight);
     let playbackIcon;
-    if (!playbackManager.active || playbackState === "missing") {
+    let playbackMessage;
+    if (playbackState === "missing") {
+        playbackMessage = "Missing";
         playbackIcon = ERROR_ICON;
     }
     else {
         const paused = playbackState === "paused";
+        playbackMessage = paused ? "Play" : "Pause";
         playbackIcon = paused ? PLAY_ICON : PAUSE_ICON;
     }
     return $ `
@@ -2070,7 +2107,7 @@ function sortControls({ appState }) {
         ${upPlaylist}
       </app-button>
       <app-button @click=${togglePlayback} .icon=${playbackIcon}>
-        ${playbackState}
+        ${playbackMessage}
       </app-button>
       <app-button
         auto-scroll
