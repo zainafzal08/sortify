@@ -766,6 +766,7 @@ class SpotifyInterface {
         this.pending = false;
         this.listeners = [];
         this.sendQueue = [];
+        this.unrecoverableError = null;
         this.init();
     }
     init() {
@@ -781,9 +782,7 @@ class SpotifyInterface {
                     yield this.fetchPlaylists();
                 }
                 this.pending = false;
-                for (const listener of this.listeners) {
-                    listener();
-                }
+                this.notifyStateChangeListeners();
             }
             // Batch spotify requests every 2 seconds.
             setInterval(() => void this.processSendQueue(), 2000);
@@ -836,41 +835,58 @@ class SpotifyInterface {
         return __awaiter(this, void 0, void 0, function* () {
             // TODO: deduplicate the code here and in post request.
             if (!this.tokenInfo) {
-                throw new Error("Attempted to make web request without tokens available.");
+                this.notifyBreakage(new Error("Attempted to make web request without tokens available."));
+                return;
             }
             if (!(yield this.tokenValid())) {
-                throw new Error("Token is invalid now.");
+                this.notifyBreakage(new Error("Token is invalid now."));
+                return;
             }
             const url = new URL(`https://api.spotify.com/v1/${endpoint}`);
             const headers = {
                 "Content-Type": "application/json",
                 Authorization: `Bearer ${this.tokenInfo.accessToken}`,
             };
-            yield fetch(url.href, {
-                method: "PUT",
-                headers,
-                body: JSON.stringify(body),
-            });
+            try {
+                yield fetch(url.href, {
+                    method: "PUT",
+                    headers,
+                    body: JSON.stringify(body),
+                });
+            }
+            catch (err) {
+                this.notifyBreakage(err);
+                return;
+            }
         });
     }
     postRequest(endpoint, body) {
         return __awaiter(this, void 0, void 0, function* () {
             if (!this.tokenInfo) {
-                throw new Error("Attempted to make web request without tokens available.");
+                this.notifyBreakage(new Error("Attempted to make web request without tokens available."));
+                return null;
             }
             if (!(yield this.tokenValid())) {
-                throw new Error("Token is invalid now.");
+                this.notifyBreakage(new Error("Token is invalid now."));
+                return null;
             }
             const url = new URL(`https://api.spotify.com/v1/${endpoint}`);
             const headers = {
                 "Content-Type": "application/json",
                 Authorization: `Bearer ${this.tokenInfo.accessToken}`,
             };
-            const r = yield fetch(url.href, {
-                method: "POST",
-                headers,
-                body: JSON.stringify(body),
-            });
+            let r;
+            try {
+                r = yield fetch(url.href, {
+                    method: "POST",
+                    headers,
+                    body: JSON.stringify(body),
+                });
+            }
+            catch (err) {
+                this.notifyBreakage(err);
+                return null;
+            }
             return r.json();
         });
     }
@@ -889,33 +905,58 @@ class SpotifyInterface {
             if (this.tokenInfo) {
                 headers["Authorization"] = `Bearer ${this.tokenInfo.accessToken}`;
             }
-            const r = yield fetch(url.href, {
-                method: "POST",
-                headers,
-                body: formBody.join("&"),
-            });
+            let r;
+            try {
+                r = yield fetch(url.href, {
+                    method: "POST",
+                    headers,
+                    body: formBody.join("&"),
+                });
+            }
+            catch (err) {
+                this.notifyBreakage(err);
+                return null;
+            }
             return r.json();
         });
     }
     makeRequest(endpoint, queryParams = {}) {
         return __awaiter(this, void 0, void 0, function* () {
             if (!this.tokenInfo) {
-                throw new Error("Attempted to make web request without tokens available.");
+                this.notifyBreakage(new Error("Attempted to make web request without tokens available."));
+                return null;
             }
             if (!(yield this.tokenValid())) {
-                throw new Error("Token is invalid now.");
+                this.notifyBreakage(new Error("Token is invalid now."));
+                return null;
             }
             const url = new URL(`https://api.spotify.com/v1/${endpoint}`);
             for (const k of Object.keys(queryParams)) {
                 url.searchParams.set(k, queryParams[k]);
             }
-            const r = yield fetch(url.href, {
-                headers: {
-                    Authorization: `Bearer ${this.tokenInfo.accessToken}`,
-                },
-            });
+            let r;
+            try {
+                r = yield fetch(url.href, {
+                    headers: {
+                        Authorization: `Bearer ${this.tokenInfo.accessToken}`,
+                    },
+                });
+            }
+            catch (err) {
+                this.notifyBreakage(err);
+                return null;
+            }
             return r.json();
         });
+    }
+    notifyStateChangeListeners() {
+        for (const listener of this.listeners) {
+            listener();
+        }
+    }
+    notifyBreakage(err) {
+        this.unrecoverableError = err;
+        this.notifyStateChangeListeners();
     }
     startLogin() {
         return __awaiter(this, void 0, void 0, function* () {
@@ -937,13 +978,10 @@ class SpotifyInterface {
     }
     connectionState() {
         let pendingLogin;
-        try {
-            this.getPendingLogin();
-            pendingLogin = true;
+        if (this.unrecoverableError !== null) {
+            return "unrecoverable";
         }
-        catch (e) {
-            pendingLogin = false;
-        }
+        pendingLogin = this.getPendingLogin() !== null;
         if (pendingLogin) {
             return "pending-login";
         }
@@ -958,17 +996,21 @@ class SpotifyInterface {
     getPendingLogin() {
         const pendingLogin = localStorage.getItem("login-in-progress");
         if (!pendingLogin) {
-            throw new Error("Attemped to complete a non pending login.");
+            return null;
         }
         return JSON.parse(pendingLogin);
     }
     completeLogin(params) {
         return __awaiter(this, void 0, void 0, function* () {
             const pendingLogin = this.getPendingLogin();
+            if (pendingLogin === null) {
+                this.notifyBreakage(new Error("Attempted to complete login with no pending login"));
+                return;
+            }
             const { code_verifier, state } = pendingLogin;
             const code = params.get("code");
             if (state !== params.get("state")) {
-                throw new Error("Returned state does not match last login request. Aborting due to CSRF Risk.");
+                this.notifyBreakage(new Error("Returned state does not match last login request. Aborting due to CSRF Risk."));
             }
             const res = yield this.formRequest("https://accounts.spotify.com/api/token", {
                 grant_type: "authorization_code",
@@ -987,11 +1029,8 @@ class SpotifyInterface {
             this.userId = me.id;
             localStorage.setItem("token_info", JSON.stringify(this.tokenInfo));
             localStorage.setItem("user_id", this.userId);
-            // This will notify listeners.
             yield this.fetchPlaylists();
-            for (const listener of this.listeners) {
-                listener();
-            }
+            this.notifyStateChangeListeners();
         });
     }
     getAllPlaylists() {
@@ -1348,6 +1387,13 @@ const ANON_ICON = $ `
   <svg viewBox="0 0 24 24">
     <path
       d="M11.83,9L15,12.16C15,12.11 15,12.05 15,12A3,3 0 0,0 12,9C11.94,9 11.89,9 11.83,9M7.53,9.8L9.08,11.35C9.03,11.56 9,11.77 9,12A3,3 0 0,0 12,15C12.22,15 12.44,14.97 12.65,14.92L14.2,16.47C13.53,16.8 12.79,17 12,17A5,5 0 0,1 7,12C7,11.21 7.2,10.47 7.53,9.8M2,4.27L4.28,6.55L4.73,7C3.08,8.3 1.78,10 1,12C2.73,16.39 7,19.5 12,19.5C13.55,19.5 15.03,19.2 16.38,18.66L16.81,19.08L19.73,22L21,20.73L3.27,3M12,7A5,5 0 0,1 17,12C17,12.64 16.87,13.26 16.64,13.82L19.57,16.75C21.07,15.5 22.27,13.86 23,12C21.27,7.61 17,4.5 12,4.5C10.6,4.5 9.26,4.75 8,5.2L10.17,7.35C10.74,7.13 11.35,7 12,7Z"
+    />
+  </svg>
+`;
+const REBOOT_ICON = $ `
+  <svg viewBox="0 0 24 24">
+    <path
+      d="M12,4C14.1,4 16.1,4.8 17.6,6.3C20.7,9.4 20.7,14.5 17.6,17.6C15.8,19.5 13.3,20.2 10.9,19.9L11.4,17.9C13.1,18.1 14.9,17.5 16.2,16.2C18.5,13.9 18.5,10.1 16.2,7.7C15.1,6.6 13.5,6 12,6V10.6L7,5.6L12,0.6V4M6.3,17.6C3.7,15 3.3,11 5.1,7.9L6.6,9.4C5.5,11.6 5.9,14.4 7.8,16.2C8.3,16.7 8.9,17.1 9.6,17.4L9,19.4C8,19 7.1,18.4 6.3,17.6Z"
     />
   </svg>
 `;
@@ -5715,6 +5761,68 @@ function sortPage({ appState }) {
 const SortPage = component(sortPage);
 customElements.define("sort-page", SortPage);
 
+function errorPage({ error }) {
+    useConstructableStylesheets(this, [
+        r$3 `
+      :host {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 100%;
+        flex-direction: column;
+      }
+      h1 {
+        color: white;
+        margin: 0;
+        padding-bottom: 1rem;
+        text-align: center;
+        width: min(100%, 400px);
+      }
+      p {
+        color: rgba(255, 255, 255, 0.7);
+        margin: 0;
+        text-align: center;
+        width: min(100%, 400px);
+        padding-bottom: 2rem;
+      }
+      .btns {
+        width: min(100%, 400px);
+        display: flex;
+        gap: 1rem;
+        align-items: center;
+        justify-content: center;
+      }
+      .btns a {
+        text-decoration: none;
+      }
+    `,
+    ]);
+    const fileBugLink = new URL("https://github.com/zainafzal08/sortify/issues/new");
+    fileBugLink.searchParams.append("title", `[Unrecoverable Error] ${error.message}`);
+    fileBugLink.searchParams.append("body", error.stack);
+    const rebootApp = () => {
+        localStorage.clear();
+        location.reload();
+    };
+    return $ `
+    <h1>Uh oh</h1>
+    <p>
+      Something went wrong, use the button below to reboot the app, hopefully
+      that fixes it. If not please file a bug using the "file bug" button.
+    </p>
+    <div class="btns">
+      <app-button @click=${rebootApp} .icon=${REBOOT_ICON}>
+        Reboot App
+      </app-button>
+      <a href=${fileBugLink.href}>
+        <app-button .icon=${GITHUB_ICON}> File Bug </app-button>
+      </a>
+    </div>
+  `;
+}
+const ErrorPage = component(errorPage);
+customElements.define("error-page", ErrorPage);
+
 const ANIMATIONS = r$3 `
   @keyframes move-1 {
     from {
@@ -5768,9 +5876,6 @@ const ANIMATIONS = r$3 `
 function appController() {
     const [appState, setAppState] = useState(null);
     const [connectionState, setConnectionState] = useState(spotifyInterface.connectionState());
-    spotifyInterface.onStateChange(() => {
-        setConnectionState(spotifyInterface.connectionState());
-    });
     const startSorting = (selections) => __awaiter(this, void 0, void 0, function* () {
         setConnectionState("pending-data");
         setAppState(Object.assign(Object.assign({}, selections), { queue: yield spotifyInterface.getAllSongsInPlaylist(selections.source) }));
@@ -5803,6 +5908,11 @@ function appController() {
         connectionState === "pending-login") {
         page = $ `<loading-page></loading-page> `;
     }
+    else if (connectionState === "unrecoverable") {
+        page = $ `<error-page
+      .error=${spotifyInterface.unrecoverableError}
+    ></error-page>`;
+    }
     else if (connectionState === "unconnected") {
         page = $ `<connect-page></connect-page> `;
     }
@@ -5813,6 +5923,9 @@ function appController() {
         page = $ `<sort-page .appState=${appState}></sort-page>`;
     }
     useEffect(() => {
+        spotifyInterface.onStateChange(() => {
+            setConnectionState(spotifyInterface.connectionState());
+        });
         colorManager.init();
         randomizeAnimation();
         maybeCompleteLogin();
