@@ -230,7 +230,6 @@ function sortPage({ appState }: SortPageProps) {
         display: grid;
         place-items: center;
         position: relative;
-        touch-action: none;
       }
       .title {
         color: white;

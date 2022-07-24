@@ -5713,7 +5713,6 @@ function sortPage({ appState }) {
         display: grid;
         place-items: center;
         position: relative;
-        touch-action: none;
       }
       .title {
         color: white;

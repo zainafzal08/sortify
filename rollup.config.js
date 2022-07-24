@@ -15,6 +15,7 @@ export default [
         targets: [
           { src: "index.html", dest: "dist" },
           { src: "logo.svg", dest: "dist" },
+          { src: "CNAME", dest: "dist" },
         ],
       }),
       nodeResolve({
