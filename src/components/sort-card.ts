@@ -25,6 +25,7 @@ function sortCard({ song }: SortCardProps) {
         justify-content: flex-end;
         flex-direction: column;
         background: black;
+        touch-action: none;
       }
       :host(.animated) {
         transition: transform 0.15s linear;
